@@ -1,0 +1,31 @@
+on:                             [push]
+
+name:                           Build and test
+
+env:
+    RUST_BACKTRACE: 1
+
+jobs:
+  coverage:
+    name:                       coverage
+    runs-on:                    ubuntu-18.04
+    container:
+      image:                    xd009642/tarpaulin@sha256:5b4906bfeec9d356c8118542ecb73ba8f46863bf4d61807a997e7b7d93361fb7
+      env:
+          RUST_BACKTRACE: 1
+      volumes:
+        - ${GITHUB_WORKSPACE}:/volume
+      options:                  --security-opt seccomp=unconfined
+    steps:
+      - name:                   Checkout repository
+        uses:                   actions/checkout@v2
+
+      - name:                   Generate code coverage
+        run: |
+          cargo +nightly tarpaulin --verbose --all-features --workspace --timeout 120 --out Xml
+
+      - name:                   Upload to codecov.io
+        uses:                   codecov/codecov-action@v1
+        with:
+          fail_ci_if_error:     true
+
