@@ -8,6 +8,7 @@ env:
 jobs:
 
   check:
+    name: Check
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v2
@@ -22,6 +23,7 @@ jobs:
 
   coverage:
     name:                       Code coverage
+    needs:                      check
     runs-on:                    ubuntu-18.04
     container:
       image:                    xd009642/tarpaulin@sha256:fbb21ab94af20ad2f17d7586ff45f1e60fb4c6231a94d8071b070625b8dee011
