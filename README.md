@@ -17,6 +17,14 @@ An explanation for each setting can also be found via:
 ```shell
 $ image-filter --help
 ```
+<img align="right" width="160" height="160" src="img/crop.jpg">
+
+#### Cropping
+Optionally, an image filter can be partially applied in the following way:
+
+```shell
+$ image-filter -i input.jpg -x 160 -y 160 -w 400 -h 400 gaussian1d -s 50.0
+```
 
 ### Subcommands
 
