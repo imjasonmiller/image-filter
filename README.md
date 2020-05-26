@@ -47,6 +47,17 @@ $ image-filter -i a.jpg -o b.jpg gaussian1d -s 10.0
 $ image-filter -i a.jpg -o b.jpg gaussian2d -s 10.0
 ```
 
+## Benchmarking
+Criterion is used to benchmark performance. See the [user
+guide](https://bheisler.github.io/criterion.rs/book/index.html) and
+documentation for information on how to generate reports.
+
+To run a specific benchmark, i.e. `gaussian_250x250`, the following command can be used:
+
+```shell
+$ cargo bench -- gaussian_250x250
+```
+
 ## License
 
 * This project is released under the [MIT License](https://github.com/imjasonmiller/image-filter/blob/master/LICENSE.md)
