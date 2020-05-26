@@ -46,11 +46,25 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "sigma should be > 0")]
-    fn invalid_kernal_sizes() {
+    fn invalid_zero_gaussian_kernel_1d() {
         gaussian_kernel_1d(0.0);
-        gaussian_kernel_2d(0.0);
+    }
 
+    #[test]
+    #[should_panic(expected = "sigma should be > 0")]
+    fn invalid_negative_gaussian_kernel_1d() {
         gaussian_kernel_1d(-1.0);
+    }
+
+    #[test]
+    #[should_panic(expected = "sigma should be > 0")]
+    fn invalid_zero_gaussian_kernel_2d() {
+        gaussian_kernel_2d(0.0);
+    }
+
+    #[test]
+    #[should_panic(expected = "sigma should be > 0")]
+    fn invalid_negative_gaussian_kernel_2d() {
         gaussian_kernel_2d(-1.0);
     }
 
