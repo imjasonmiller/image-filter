@@ -15,10 +15,10 @@ struct Opts {
     output: PathBuf,
     #[clap(short, long, arg_enum, default_value = "crop")]
     edges: Edges,
-    #[clap(short)]
-    x: Option<u32>,
-    #[clap(short)]
-    y: Option<u32>,
+    #[clap(short, default_value = "0")]
+    x: u32,
+    #[clap(short, default_value = "0")]
+    y: u32,
     #[clap(short, long)]
     width: Option<u32>,
     #[clap(short, long)]
@@ -62,7 +62,7 @@ fn read_image(path: &PathBuf) -> Result<image::DynamicImage, std::io::ErrorKind>
 
 fn write_image(buf: &RgbImage, path: &PathBuf) {
     if buf.save(&path).is_err() {
-        panic!("could not save");
+        panic!("could not save image");
     }
 }
 
@@ -79,18 +79,34 @@ fn main() -> Result<(), std::io::ErrorKind> {
 
     let (img_w, img_h) = img.dimensions();
 
-    let crop_x = opts.x.unwrap();
-    let crop_y = opts.y.unwrap();
-    let crop_w = match opts.width {
-        Some(w) if w > img_w => panic!("crop width exceeds image bounds"),
-        Some(w) => w,
-        None => img_w,
+    let crop_x = match opts.x {
+        n if n >= img_w => {
+            println!("crop -x set to 0, as crop exceeds image width");
+            0
+        }
+        n => n,
     };
-    let crop_h = match opts.height {
-        Some(h) if h > img_h => panic!("crop height exceeds image bounds"),
-        Some(h) => h,
-        None => img_h,
+    let crop_y = match opts.y {
+        n if n >= img_h => {
+            println!("crop -y set to 0, as crop exceeds image height");
+            0
+        }
+        n => n,
     };
+    let crop_w = opts.width.map_or(img_w, |n| {
+        if crop_x + n > img_w {
+            println!("crop -w set to {}, as crop exceeds image width", img_w - n);
+            return img_w - n;
+        }
+        n
+    });
+    let crop_h = opts.height.map_or(img_h, |n| {
+        if crop_y + n > img_h {
+            println!("crop -h set to {}, as crop exceeds image height", img_h - n);
+            return img_h - n;
+        }
+        n
+    });
 
     let mut buf = img.clone();
     let view = imageops::crop(&mut img, crop_x, crop_y, crop_w, crop_h);
@@ -115,4 +131,3 @@ fn main() -> Result<(), std::io::ErrorKind> {
 
     Ok(())
 }
-
