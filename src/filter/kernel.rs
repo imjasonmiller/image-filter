@@ -39,3 +39,67 @@ pub fn gaussian_kernel_2d(sigma: f64) -> Vec<Vec<f64>> {
         .collect()
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+
+    #[test]
+    #[should_panic(expected = "sigma should be > 0")]
+    fn invalid_kernal_sizes() {
+        gaussian_kernel_1d(0.0);
+        gaussian_kernel_2d(0.0);
+
+        gaussian_kernel_1d(-1.0);
+        gaussian_kernel_2d(-1.0);
+    }
+
+    #[test]
+    fn valid_kernel_1d() {
+        let expect: [f64; 7] = [
+            0.00081721, 0.02804152, 0.23392642, 0.47442967, 0.23392642, 0.02804152, 0.00081721,
+        ];
+
+        let result = gaussian_kernel_1d(0.84089642);
+
+        for i in 0..result.len() {
+            assert_relative_eq!(expect[i], result[i], epsilon = 1e-8f64);
+        }
+    }
+
+    #[test]
+    fn valid_kernel_2d() {
+        let expect: [[f64; 7]; 7] = [
+            [
+                0.00000066, 0.00002291, 0.00019116, 0.00038771, 0.00019116, 0.00002291, 0.00000066,
+            ],
+            [
+                0.00002291, 0.00078632, 0.00655965, 0.01330372, 0.00655965, 0.00078632, 0.00002291,
+            ],
+            [
+                0.00019116, 0.00655965, 0.05472157, 0.11098163, 0.05472157, 0.00655965, 0.00019116,
+            ],
+            [
+                0.00038771, 0.01330372, 0.11098163, 0.22508351, 0.11098163, 0.01330372, 0.00038771,
+            ],
+            [
+                0.00019116, 0.00655965, 0.05472157, 0.11098163, 0.05472157, 0.00655965, 0.00019116,
+            ],
+            [
+                0.00002291, 0.00078632, 0.00655965, 0.01330372, 0.00655965, 0.00078632, 0.00002291,
+            ],
+            [
+                0.00000066, 0.00002291, 0.00019116, 0.00038771, 0.00019116, 0.00002291, 0.00000066,
+            ],
+        ];
+
+        let result = gaussian_kernel_2d(0.84089642);
+
+        for i in 0..result.len() {
+            for j in 0..result.len() {
+                assert_relative_eq!(expect[i][j], result[i][j], epsilon = 1e-8f64);
+            }
+        }
+    }
+}
+
