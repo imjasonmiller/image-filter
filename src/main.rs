@@ -1,8 +1,7 @@
 use clap::{crate_authors, crate_version, AppSettings::SubcommandRequiredElseHelp, Clap};
+use filters::*;
 use image::{imageops, DynamicImage, ImageBuffer, RgbImage};
 use std::path::{Path, PathBuf};
-
-mod filter;
 
 #[derive(Clap)]
 #[clap(setting = SubcommandRequiredElseHelp, version = crate_version!(), author = crate_authors!())]
@@ -118,10 +117,10 @@ fn main() -> Result<(), std::io::ErrorKind> {
 
     match opts.filter {
         Filter::Gaussian1D(Gaussian { sigma }) => {
-            filter::gaussian_1d(&view.to_image(), crop_x, crop_y, &mut buf, sigma)
+            filters::gaussian_1d(&view.to_image(), crop_x, crop_y, &mut buf, sigma)
         }
         Filter::Gaussian2D(Gaussian { sigma }) => {
-            filter::gaussian_2d(&view.to_image(), crop_x, crop_y, &mut buf, sigma)
+            filters::gaussian_2d(&view.to_image(), crop_x, crop_y, &mut buf, sigma)
         }
     }
 

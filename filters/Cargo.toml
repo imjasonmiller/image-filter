@@ -1,22 +1,10 @@
 [package]
-name = "image-filter"
+name = "filters"
 version = "0.1.0"
 authors = ["Jason Miller <contact@jasonmiller.nl>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[workspace]
-
 [dependencies]
-clap = "3.0.0-beta.1"
-approx = "0.3.2"
-filters = { path = "filters" }
 image = "0.23.4"
-
-[dev-dependencies]
-criterion = "0.3.2"
-
-[[bench]]
-name = "gaussian"
-harness = false
