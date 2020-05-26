@@ -42,5 +42,8 @@ $ image-filter -i a.jpg -o b.jpg gaussian1d -s 10.0
 $ image-filter -i a.jpg -o b.jpg gaussian2d -s 10.0
 ```
 
-Image, ["Chaotic Clouds of Jupiter"](https://www.jpl.nasa.gov/spaceimages/details.php?id=PIA22424), via NASA/JPL-Caltech/SwRI/MSSS/Gerald Eichstad/Sean Doran @ is CC-NC-SA
+## License
 
+This project is released under the [MIT License](https://github.com/imjasonmiller/image-filter/blob/master/LICENSE.md)
+
+Image, ["Chaotic Clouds of Jupiter"](https://www.jpl.nasa.gov/spaceimages/details.php?id=PIA22424), via NASA/JPL-Caltech/SwRI/MSSS/Gerald Eichstad/Sean Doran @ is CC-NC-SA
