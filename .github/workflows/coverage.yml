@@ -25,7 +25,7 @@ jobs:
     name:                       Code coverage
     runs-on:                    ubuntu-18.04
     container:
-        image:                  xd009642/tarpaulin@0.13.0
+      image:                    xd009642/tarpaulin@sha256:6184f12f75efa551f8414f8f8f53e7c45f3257ad12bbc1b37c21a7634752f6ee
       env:
           RUST_BACKTRACE: 1
       options:                  --security-opt seccomp=unconfined
