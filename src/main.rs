@@ -1,6 +1,6 @@
 use clap::{crate_authors, crate_version, AppSettings::SubcommandRequiredElseHelp, Clap};
-use filters::*;
-use image::{imageops, DynamicImage, ImageBuffer, RgbImage};
+use filters::{gaussian_1d, gaussian_2d};
+use image::{imageops, DynamicImage, RgbImage};
 use std::path::{Path, PathBuf};
 
 #[derive(Clap)]
@@ -12,8 +12,8 @@ struct Opts {
     input: PathBuf,
     #[clap(short, long, parse(from_os_str), default_value = "output.jpg")]
     output: PathBuf,
-    #[clap(short, long, arg_enum, default_value = "crop")]
-    edges: Edges,
+    // #[clap(short, long, arg_enum, default_value = "crop")]
+    // edges: Edges,
     #[clap(short, default_value = "0")]
     x: u32,
     #[clap(short, default_value = "0")]
@@ -107,7 +107,6 @@ fn main() -> Result<(), std::io::ErrorKind> {
         n
     });
 
-    let mut buf = img.clone();
     let view = imageops::crop(&mut img, crop_x, crop_y, crop_w, crop_h);
 
     use std::time::Instant;
@@ -115,18 +114,23 @@ fn main() -> Result<(), std::io::ErrorKind> {
 
     println!("Filtering image...");
 
+    let src = view.to_image();
+    let mut buf = view.to_image();
+
     match opts.filter {
         Filter::Gaussian1D(Gaussian { sigma }) => {
-            filters::gaussian_1d(&view.to_image(), crop_x, crop_y, &mut buf, sigma)
+            gaussian_1d(&src, &mut buf, crop_w, crop_h, sigma)
         }
         Filter::Gaussian2D(Gaussian { sigma }) => {
-            filters::gaussian_2d(&view.to_image(), crop_x, crop_y, &mut buf, sigma)
+            gaussian_2d(&src, &mut buf, crop_w, crop_h, sigma)
         }
     }
 
     println!("Total time: {:?}", start.elapsed());
 
-    write_image(&buf, &opts.output);
+    imageops::replace(&mut img, &buf, crop_x, crop_y);
+    write_image(&img, &opts.output);
 
     Ok(())
 }
+
