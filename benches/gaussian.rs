@@ -2,23 +2,26 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use filters::{gaussian_1d, gaussian_2d};
 use image::RgbImage;
 
-pub fn gaussian_benchmark(c: &mut Criterion) {
-    let img = RgbImage::new(250, 250);
-    let mut buf = RgbImage::new(250, 250);
+pub fn bench_gaussian_1d(c: &mut Criterion) {
+    let (width, height) = (1024, 1024);
+    let img = RgbImage::new(width, height);
+    let mut buf = img.clone();
 
-    let mut group = c.benchmark_group("gaussian_250x250");
-
-    group.bench_function("gaussian_kernel_1d", |b| {
-        b.iter(|| gaussian_1d(&img, 0, 0, &mut buf, 1.0))
+    c.bench_function("gaussian_1d", |b| {
+        b.iter(|| gaussian_1d(&img, &mut buf, width, height, 5.0))
     });
-
-    group.bench_function("gaussian_kernel_2d", |b| {
-        b.iter(|| gaussian_2d(&img, 0, 0, &mut buf, 1.0))
-    });
-
-    group.finish();
 }
 
-criterion_group!(benches, gaussian_benchmark);
+pub fn bench_gaussian_2d(c: &mut Criterion) {
+    let (width, height) = (1024, 1024);
+    let img = RgbImage::new(width, height);
+    let mut buf = img.clone();
+
+    c.bench_function("gaussian_2d", |b| {
+        b.iter(|| gaussian_2d(&img, &mut buf, width, height, 5.0))
+    });
+}
+
+criterion_group!(benches, bench_gaussian_1d, bench_gaussian_2d);
 criterion_main!(benches);
 

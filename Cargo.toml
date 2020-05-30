@@ -12,9 +12,15 @@ edition = "2018"
 clap = "3.0.0-beta.1"
 filters = { path = "filters" }
 image = "0.23.4"
+ndarray = "0.13.1"
 
 [dev-dependencies]
 criterion = "0.3.2"
+
+[[bin]]
+name = "image-filter"
+path = "src/main.rs"
+bench = false
 
 [[bench]]
 name = "gaussian"

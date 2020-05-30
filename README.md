@@ -58,6 +58,18 @@ To run a specific benchmark, i.e. `gaussian_250x250`, the following command can 
 $ cargo bench -- gaussian_250x250
 ```
 
+To save a given baseline to compare against: 
+
+```shell
+$ cargo bench --bench gaussian -- --save-baseline example_a --sample-size 25
+```
+
+To compare against a saved baseline: 
+
+```shell
+$ cargo bench --bench gaussian -- --load-baseline example_b --baseline example_a
+```
+
 ## License
 
 * This project is released under the [MIT License](https://github.com/imjasonmiller/image-filter/blob/master/LICENSE.md)
