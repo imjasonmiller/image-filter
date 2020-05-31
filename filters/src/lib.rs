@@ -96,7 +96,7 @@ pub fn convolve<T>(
     let kernel_rows = kernel.len() as i32 / 2;
 
     img_buf
-        .par_chunks_mut(channel_count as usize)
+        .par_chunks_exact_mut(channel_count as usize)
         .enumerate()
         .for_each(|(i, pixel)| {
             let x = i as i32 % width as i32;
