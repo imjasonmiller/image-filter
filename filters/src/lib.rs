@@ -34,10 +34,41 @@ pub fn gaussian_2d(img: &[u8], buf: &mut [u8], width: u32, height: u32, sigma: f
     convolve(img, buf, width, height, 3, &kernel);
 }
 
+pub fn sobel2d(img: &[u8], buf: &mut [u8], width: u32, height: u32) {
+    let kernel_x: Vec<Vec<f64>> = vec![
+        vec![-1.0, 0.0, 1.0],
+        vec![-2.0, 0.0, 2.0],
+        vec![-1.0, 0.0, 1.0],
+    ];
+
+    let kernel_y: Vec<Vec<f64>> = vec![
+        vec![1.0, 2.0, 1.0],
+        vec![0.0, 0.0, 0.0],
+        vec![-1.0, -2.0, -1.0],
+    ];
+
+    // Find the gradient along the x-axis
+    convolve(img, buf, width, height, 3, &kernel_x);
+
+    // Create an extra buffer, as one is required for each gradient
+    let mut tmp = img.to_vec();
+
+    // Find the gradient along the y-axis
+    convolve(img, &mut tmp[..], width, height, 3, &kernel_y);
+
+    // Apply the Pythagorean theorem to both buffers for the gradient magnitude
+    buf.par_chunks_mut(3)
+        .zip(tmp.par_chunks(3))
+        .for_each(|(gx, gy)| {
+            for c in 0..3 {
+                gx[c] = (f64::from(gx[c]).powi(2) + f64::from(gy[c]).powi(2)).sqrt() as u8
+            }
+        });
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct WeightedElement(f64);
 
-// FIXME: Possible perf improvement by removing minimum bound
 impl Into<u8> for WeightedElement {
     fn into(self) -> u8 {
         self.0.min(255.0).max(0.0) as u8
@@ -75,15 +106,21 @@ pub fn convolve<T>(
 
             for (i, kernel_y) in (y - kernel_rows..=y + kernel_rows).enumerate() {
                 for (j, kernel_x) in (x - kernel_cols..=x + kernel_cols).enumerate() {
+                    // Clamp kernel edges to image bounds
                     let edge_x = kernel_x.min(width as i32 - 1).max(0) as usize;
                     let edge_y = kernel_y.min(height as i32 - 1).max(0) as usize;
 
-                    let start = edge_y * width as usize * channel_count as usize
-                        + edge_x * channel_count as usize;
-                    let value = img_src.get(start..start + channel_count as usize).unwrap();
+                    // The x- and y coordinate for the pixel
+                    let p_x = edge_x * channel_count as usize;
+                    let p_y = edge_y * channel_count as usize * width as usize;
 
-                    for c in 0..channel_count as usize {
-                        weights[c] += WeightedElement(value[c].into() * kernel[i][j]);
+                    // A range of all channels for the pixel
+                    let channels = (p_x + p_y)..(p_x + p_y) + channel_count as usize;
+
+                    let pixel = img_src.get(channels).unwrap();
+
+                    for (weight, &channel) in weights.iter_mut().zip(pixel) {
+                        *weight += WeightedElement(channel.into() * kernel[i][j]);
                     }
                 }
             }

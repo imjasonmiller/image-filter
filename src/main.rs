@@ -1,6 +1,6 @@
 use clap::{crate_authors, crate_version, AppSettings::SubcommandRequiredElseHelp, Clap};
-use filters::{gaussian_1d, gaussian_2d};
-use image::{imageops, DynamicImage, RgbImage};
+use filters::{gaussian_1d, gaussian_2d, sobel2d};
+use image::{imageops, DynamicImage, Pixel, RgbImage};
 use std::path::{Path, PathBuf};
 
 #[derive(Clap)]
@@ -36,12 +36,20 @@ enum Filter {
     Gaussian1D(Gaussian),
     #[clap(name = "gaussian2d")]
     Gaussian2D(Gaussian),
+    #[clap(name = "sobel2d")]
+    Sobel2D(Sobel),
 }
 
 #[derive(Clap, Debug)]
 struct Gaussian {
     #[clap(short, long, default_value = "0.84089642")]
     sigma: f64,
+}
+
+#[derive(Clap, Debug)]
+struct Sobel {
+    #[clap(short, long)]
+    sigma: Option<f64>,
 }
 
 fn read_image(path: &PathBuf) -> Result<image::DynamicImage, std::io::ErrorKind> {
@@ -119,10 +127,24 @@ fn main() -> Result<(), std::io::ErrorKind> {
 
     match opts.filter {
         Filter::Gaussian1D(Gaussian { sigma }) => {
-            gaussian_1d(&src, &mut buf, crop_w, crop_h, sigma)
+            gaussian_1d(&src, &mut buf, crop_w, crop_h, sigma);
         }
         Filter::Gaussian2D(Gaussian { sigma }) => {
-            gaussian_2d(&src, &mut buf, crop_w, crop_h, sigma)
+            gaussian_2d(&src, &mut buf, crop_w, crop_h, sigma);
+        }
+        Filter::Sobel2D(Sobel { sigma }) => {
+            // Create a grayscale version of the image
+            let grayscale = imageops::grayscale(&buf);
+            for (rgb_pixel, grayscale_pixel) in buf.pixels_mut().zip(grayscale.pixels()) {
+                *rgb_pixel = grayscale_pixel.to_rgb();
+            }
+
+            // Apply gaussian blur if --sigma receives an argument
+            if let Some(sigma) = sigma {
+                gaussian_1d(&buf.to_owned(), &mut buf, crop_w, crop_h, sigma);
+            }
+
+            sobel2d(&buf.to_owned(), &mut buf, crop_w, crop_h);
         }
     }
 
