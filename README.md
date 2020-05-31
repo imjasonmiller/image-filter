@@ -37,7 +37,6 @@ $ image-filter -i input.jpg -x 160 -y 160 -w 400 -h 400 gaussian1d -s 50.0
 -----------------|----------------------|-----------
 `-s` / `--sigma` | Strength of the blur | 0.84089642
 
-
 <img align="right" width="144" height="144" src="img/gaussian.jpg">
 
 ```shell
@@ -45,6 +44,18 @@ $ image-filter -i a.jpg -o b.jpg gaussian1d -s 10.0
 ```
 ```shell
 $ image-filter -i a.jpg -o b.jpg gaussian2d -s 10.0
+```
+
+### Sobel
+
+ Flag            | Details              | Default
+-----------------|----------------------|-----------
+`-s` / `--sigma` | Strength of the blur | None
+
+<img align="right" width="144" height="144" src="img/sobel.jpg">
+
+```shell
+$ image-filter -i a.jpg -o b.jpg gaussian2d -s 1.0
 ```
 
 ## Benchmarking
