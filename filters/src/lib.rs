@@ -1,51 +1,26 @@
+use ndarray::prelude::*;
 use rayon::prelude::*;
 
 mod kernel;
 
-fn transpose_2d(mat_a: Vec<Vec<f64>>) -> Vec<Vec<f64>> {
-    let (rows, cols) = (mat_a.len(), mat_a[0].len());
-    let mut mat_b = vec![vec![0.0; rows]; cols];
-
-    for j in 0..rows {
-        for i in 0..cols {
-            mat_b[i][j] = mat_a[j][i]
-        }
-    }
-
-    mat_b
-}
-
 pub fn gaussian_1d(img: &[u8], buf: &mut [u8], width: u32, height: u32, sigma: f64) {
-    let kernel = kernel::gaussian_kernel_1d(sigma);
+    let (kernel_x, kernel_y) = kernel::gaussian_kernel_1d(sigma);
 
-    convolve(img, buf, width, height, 3, &kernel);
-    convolve(
-        &buf.to_owned(),
-        buf,
-        width,
-        height,
-        3,
-        &transpose_2d(kernel),
-    );
+    // Blur along the x-axis
+    convolve(img, buf, width, height, 3, &kernel_x);
+
+    // Blur along the y-axis
+    convolve(&buf.to_owned(), buf, width, height, 3, &kernel_y);
 }
 
 pub fn gaussian_2d(img: &[u8], buf: &mut [u8], width: u32, height: u32, sigma: f64) {
     let kernel = kernel::gaussian_kernel_2d(sigma);
+
     convolve(img, buf, width, height, 3, &kernel);
 }
 
 pub fn sobel2d(img: &[u8], buf: &mut [u8], width: u32, height: u32) {
-    let kernel_x: Vec<Vec<f64>> = vec![
-        vec![-1.0, 0.0, 1.0],
-        vec![-2.0, 0.0, 2.0],
-        vec![-1.0, 0.0, 1.0],
-    ];
-
-    let kernel_y: Vec<Vec<f64>> = vec![
-        vec![1.0, 2.0, 1.0],
-        vec![0.0, 0.0, 0.0],
-        vec![-1.0, -2.0, -1.0],
-    ];
+    let (kernel_x, kernel_y) = kernel::sobel2d();
 
     // Find the gradient along the x-axis
     convolve(img, buf, width, height, 3, &kernel_x);
@@ -56,7 +31,7 @@ pub fn sobel2d(img: &[u8], buf: &mut [u8], width: u32, height: u32) {
     // Find the gradient along the y-axis
     convolve(img, &mut tmp[..], width, height, 3, &kernel_y);
 
-    // Apply the Pythagorean theorem to both buffers for the gradient magnitude
+    // Apply Pythagorean theorem to both buffers for the gradient magnitude
     buf.par_chunks_mut(3)
         .zip(tmp.par_chunks(3))
         .for_each(|(gx, gy)| {
@@ -87,13 +62,13 @@ pub fn convolve<T>(
     width: u32,
     height: u32,
     channel_count: u8,
-    kernel: &Vec<Vec<f64>>,
+    kernel: &Array2<f64>,
 ) where
     T: Sync + Send + Copy + Into<f64>,
     WeightedElement: Into<T>,
 {
-    let kernel_cols = kernel[0].len() as i32 / 2;
-    let kernel_rows = kernel.len() as i32 / 2;
+    let rows_radius = kernel.nrows() as i32 / 2;
+    let cols_radius = kernel.ncols() as i32 / 2;
 
     img_buf
         .par_chunks_exact_mut(channel_count as usize)
@@ -104,23 +79,23 @@ pub fn convolve<T>(
 
             let mut weights = vec![WeightedElement(0.0); channel_count as usize];
 
-            for (i, kernel_y) in (y - kernel_rows..=y + kernel_rows).enumerate() {
-                for (j, kernel_x) in (x - kernel_cols..=x + kernel_cols).enumerate() {
+            for (i, kernel_y) in (y - rows_radius..=y + rows_radius).enumerate() {
+                for (j, kernel_x) in (x - cols_radius..=x + cols_radius).enumerate() {
                     // Clamp kernel edges to image bounds
                     let edge_x = kernel_x.min(width as i32 - 1).max(0) as usize;
                     let edge_y = kernel_y.min(height as i32 - 1).max(0) as usize;
 
-                    // The x- and y coordinate for the pixel
+                    // The pixel x- and y coordinate
                     let p_x = edge_x * channel_count as usize;
                     let p_y = edge_y * channel_count as usize * width as usize;
 
-                    // A range of all channels for the pixel
+                    // Range of pixel channel indices
                     let channels = (p_x + p_y)..(p_x + p_y) + channel_count as usize;
 
                     let pixel = img_src.get(channels).unwrap();
 
                     for (weight, &channel) in weights.iter_mut().zip(pixel) {
-                        *weight += WeightedElement(channel.into() * kernel[i][j]);
+                        *weight += WeightedElement(channel.into() * kernel[[i, j]]);
                     }
                 }
             }

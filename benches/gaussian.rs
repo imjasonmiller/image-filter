@@ -3,7 +3,7 @@ use filters::{gaussian_1d, gaussian_2d};
 use image::RgbImage;
 
 pub fn bench_gaussian_1d(c: &mut Criterion) {
-    let (width, height) = (1024, 1024);
+    let (width, height) = (500, 500);
     let img = RgbImage::new(width, height);
     let mut buf = img.clone();
 
@@ -13,7 +13,7 @@ pub fn bench_gaussian_1d(c: &mut Criterion) {
 }
 
 pub fn bench_gaussian_2d(c: &mut Criterion) {
-    let (width, height) = (1024, 1024);
+    let (width, height) = (500, 500);
     let img = RgbImage::new(width, height);
     let mut buf = img.clone();
 
