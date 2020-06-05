@@ -3,42 +3,15 @@ use rayon::prelude::*;
 
 mod kernel;
 
-pub fn gaussian_1d(img: &[u8], buf: &mut [u8], width: u32, height: u32, sigma: f64) {
-    let (kernel_x, kernel_y) = kernel::gaussian_kernel_1d(sigma);
-
-    // Blur along the x-axis
-    convolve(img, buf, width, height, 3, &kernel_x);
-
-    // Blur along the y-axis
-    convolve(&buf.to_owned(), buf, width, height, 3, &kernel_y);
-}
-
-pub fn gaussian_2d(img: &[u8], buf: &mut [u8], width: u32, height: u32, sigma: f64) {
-    let kernel = kernel::gaussian_kernel_2d(sigma);
-
-    convolve(img, buf, width, height, 3, &kernel);
-}
-
-pub fn sobel2d(img: &[u8], buf: &mut [u8], width: u32, height: u32) {
-    let (kernel_x, kernel_y) = kernel::sobel2d();
-
-    // Find the gradient along the x-axis
-    convolve(img, buf, width, height, 3, &kernel_x);
-
-    // Create an extra buffer, as one is required for each gradient
-    let mut tmp = img.to_vec();
-
-    // Find the gradient along the y-axis
-    convolve(img, &mut tmp[..], width, height, 3, &kernel_y);
-
-    // Apply Pythagorean theorem to both buffers for the gradient magnitude
-    buf.par_chunks_mut(3)
-        .zip(tmp.par_chunks(3))
-        .for_each(|(gx, gy)| {
-            for c in 0..3 {
-                gx[c] = (f64::from(gx[c]).powi(2) + f64::from(gy[c]).powi(2)).sqrt() as u8
-            }
-        });
+pub struct Image<'a, T>
+where
+    T: Sync + Send + Copy + Into<f64>,
+{
+    pub source: &'a mut [T],
+    pub buffer: &'a mut [T],
+    pub width: u32,
+    pub height: u32,
+    pub channel_count: u8,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -56,43 +29,118 @@ impl std::ops::AddAssign for WeightedElement {
     }
 }
 
-pub fn convolve<T>(
-    img_src: &[T],
-    img_buf: &mut [T],
-    width: u32,
-    height: u32,
-    channel_count: u8,
-    kernel: &Array2<f64>,
-) where
+pub fn gaussian_1d<T>(img: &mut Image<T>, sigma: f64)
+where
     T: Sync + Send + Copy + Into<f64>,
     WeightedElement: Into<T>,
 {
-    let rows_radius = kernel.nrows() as i32 / 2;
-    let cols_radius = kernel.ncols() as i32 / 2;
+    let (kernel_x, kernel_y) = kernel::gaussian_kernel_1d(sigma);
 
-    img_buf
+    // Blur along the x-axis
+    convolve(img, &kernel_x);
+
+    // Use the previous buffer as source for the second pass
+    img.source.copy_from_slice(img.buffer);
+
+    // Blur along the y-axis
+    convolve(img, &kernel_y)
+}
+
+pub fn gaussian_2d<T>(img: &mut Image<T>, sigma: f64)
+where
+    T: Sync + Send + Copy + Into<f64>,
+    WeightedElement: Into<T>,
+{
+    let kernel = kernel::gaussian_kernel_2d(sigma);
+
+    convolve(img, &kernel);
+}
+
+pub fn sobel2d<T>(img: &mut Image<T>)
+where
+    T: Sync + Send + Copy + Into<f64>,
+    WeightedElement: Into<T>,
+{
+    let (kernel_x, kernel_y) = kernel::sobel2d();
+
+    // Change color to Luma
+    // See: https://www.wikiwand.com/en/Grayscale#/Luma_coding_in_video_systems
+    img.source.par_chunks_mut(3).for_each(|p| {
+        let y = WeightedElement(0.299 * p[0].into() + 0.587 * p[1].into() + 0.114 * p[2].into());
+        p[0] = y.into();
+        p[1] = y.into();
+        p[2] = y.into();
+    });
+
+    // Find the gradient along the x-axis
+    convolve(img, &kernel_x);
+
+    // Create an extra buffer, as one is required for each gradient
+    let mut tmp = img.source.to_vec();
+
+    // Find the gradient along the y-axis
+    convolve(
+        &mut Image {
+            source: &mut img.source,
+            // buffer: &mut tmp[..],
+            buffer: &mut tmp,
+            ..*img
+        },
+        &kernel_y,
+    );
+
+    // Apply Pythagorean theorem to both buffers for the gradient magnitude
+    img.buffer
+        .par_chunks_mut(3)
+        .zip(tmp.par_chunks(3))
+        .for_each(|(gx, gy)| {
+            for c in 0..3 {
+                gx[c] = WeightedElement(((gx[c].into()).powi(2) + (gy[c].into()).powi(2)).sqrt())
+                    .into();
+            }
+        });
+}
+
+pub fn convolve<T>(img: &mut Image<T>, kernel: &Array2<f64>)
+where
+    T: Sync + Send + Copy + Into<f64>,
+    WeightedElement: Into<T>,
+{
+    let rows_half = kernel.nrows() as i32 / 2;
+    let cols_half = kernel.ncols() as i32 / 2;
+
+    let Image {
+        ref source,
+        width,
+        height,
+        channel_count,
+        ..
+    } = *img;
+
+    img.buffer
         .par_chunks_exact_mut(channel_count as usize)
         .enumerate()
         .for_each(|(i, pixel)| {
+            // Pixel x- and y-coordinate
             let x = i as i32 % width as i32;
             let y = i as i32 / width as i32;
 
             let mut weights = vec![WeightedElement(0.0); channel_count as usize];
 
-            for (i, kernel_y) in (y - rows_radius..=y + rows_radius).enumerate() {
-                for (j, kernel_x) in (x - cols_radius..=x + cols_radius).enumerate() {
+            for (i, kernel_y) in (y - rows_half..=y + rows_half).enumerate() {
+                for (j, kernel_x) in (x - cols_half..=x + cols_half).enumerate() {
                     // Clamp kernel edges to image bounds
                     let edge_x = kernel_x.min(width as i32 - 1).max(0) as usize;
                     let edge_y = kernel_y.min(height as i32 - 1).max(0) as usize;
 
-                    // The pixel x- and y coordinate
+                    // Kernel x- and y coordinate
                     let p_x = edge_x * channel_count as usize;
                     let p_y = edge_y * channel_count as usize * width as usize;
 
                     // Range of pixel channel indices
                     let channels = (p_x + p_y)..(p_x + p_y) + channel_count as usize;
 
-                    let pixel = img_src.get(channels).unwrap();
+                    let pixel = source.get(channels).unwrap();
 
                     for (weight, &channel) in weights.iter_mut().zip(pixel) {
                         *weight += WeightedElement(channel.into() * kernel[[i, j]]);

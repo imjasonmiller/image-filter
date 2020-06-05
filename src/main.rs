@@ -1,6 +1,8 @@
 use clap::{crate_authors, crate_version, AppSettings::SubcommandRequiredElseHelp, Clap};
-use filters::{gaussian_1d, gaussian_2d, sobel2d};
-use image::{imageops, DynamicImage, Pixel, RgbImage};
+use filters::{gaussian_1d, gaussian_2d, sobel2d, Image};
+use image::{
+    imageops, DynamicImage, GenericImage, GenericImageView, ImageBuffer, Pixel, Rgb, RgbImage,
+};
 use std::path::{Path, PathBuf};
 
 #[derive(Clap)]
@@ -115,42 +117,47 @@ fn main() -> Result<(), std::io::ErrorKind> {
         n
     });
 
-    let view = imageops::crop(&mut img, crop_x, crop_y, crop_w, crop_h);
-
     use std::time::Instant;
     let start = Instant::now();
 
     println!("Filtering image...");
 
-    let src = view.to_image();
-    let mut buf = view.to_image();
+    let crop = imageops::crop(&mut img, crop_x, crop_y, crop_w, crop_h);
+
+    let mut source = crop.to_image();
+    let mut buffer = crop.to_image();
+
+    let mut image = Image {
+        source: source.as_mut(),
+        buffer: buffer.as_mut(),
+        width: crop_w,
+        height: crop_h,
+        channel_count: 3,
+    };
 
     match opts.filter {
-        Filter::Gaussian1D(Gaussian { sigma }) => {
-            gaussian_1d(&src, &mut buf, crop_w, crop_h, sigma);
-        }
-        Filter::Gaussian2D(Gaussian { sigma }) => {
-            gaussian_2d(&src, &mut buf, crop_w, crop_h, sigma);
-        }
+        Filter::Gaussian1D(Gaussian { sigma }) => gaussian_1d(&mut image, sigma),
+        Filter::Gaussian2D(Gaussian { sigma }) => gaussian_2d(&mut image, sigma),
         Filter::Sobel2D(Sobel { sigma }) => {
-            // Create a grayscale version of the image
-            let grayscale = imageops::grayscale(&buf);
-            for (rgb_pixel, grayscale_pixel) in buf.pixels_mut().zip(grayscale.pixels()) {
-                *rgb_pixel = grayscale_pixel.to_rgb();
-            }
-
-            // Apply gaussian blur if --sigma receives an argument
+            // TODO: Perform Gaussian and Sobel in one step, not two
+            // Apply Gaussian blur if sigma is passed
             if let Some(sigma) = sigma {
-                gaussian_1d(&buf.to_owned(), &mut buf, crop_w, crop_h, sigma);
+                gaussian_1d(&mut image, sigma);
+
+                // Use the previous buffer as source for the second pass
+                image.source.copy_from_slice(image.buffer);
             }
 
-            sobel2d(&buf.to_owned(), &mut buf, crop_w, crop_h);
+            sobel2d(&mut image);
         }
     }
 
     println!("Total time: {:?}", start.elapsed());
 
-    imageops::replace(&mut img, &buf, crop_x, crop_y);
+    let result: ImageBuffer<image::Rgb<u8>, _> =
+        ImageBuffer::from_raw(image.width, image.height, image.buffer).unwrap();
+
+    imageops::replace(&mut img, &result, crop_x, crop_y);
     write_image(&img, &opts.output);
 
     Ok(())
