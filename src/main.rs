@@ -1,8 +1,6 @@
 use clap::{crate_authors, crate_version, AppSettings::SubcommandRequiredElseHelp, Clap};
 use filters::{gaussian_1d, gaussian_2d, sobel2d, Image};
-use image::{
-    imageops, DynamicImage, GenericImage, GenericImageView, ImageBuffer, Pixel, Rgb, RgbImage,
-};
+use image::{imageops, DynamicImage, ImageBuffer, RgbImage};
 use std::path::{Path, PathBuf};
 
 #[derive(Clap)]
@@ -24,6 +22,8 @@ struct Opts {
     width: Option<u32>,
     #[clap(short, long)]
     height: Option<u32>,
+    #[clap(short, long)]
+    verbose: bool,
 }
 
 #[derive(Clap)]
@@ -120,7 +120,9 @@ fn main() -> Result<(), std::io::ErrorKind> {
     use std::time::Instant;
     let start = Instant::now();
 
-    println!("Filtering image...");
+    if opts.verbose {
+        println!("Filtering image...");
+    }
 
     let crop = imageops::crop(&mut img, crop_x, crop_y, crop_w, crop_h);
 
@@ -152,7 +154,9 @@ fn main() -> Result<(), std::io::ErrorKind> {
         }
     }
 
-    println!("Total time: {:?}", start.elapsed());
+    if opts.verbose {
+        println!("Total time: {:?}", start.elapsed());
+    }
 
     let result: ImageBuffer<image::Rgb<u8>, _> =
         ImageBuffer::from_raw(image.width, image.height, image.buffer).unwrap();

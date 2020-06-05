@@ -1,5 +1,5 @@
 # image-filter ✨
-![Codecov](https://img.shields.io/codecov/c/github/imjasonmiller/image-filter?style=social) ![GitHub](https://img.shields.io/github/license/imjasonmiller/image-filter?style=social)
+![Codecov](https://img.shields.io/codecov/c/github/imjasonmiller/image-filter?style=social) ![GitHub](https://img.shields.io/github/license/imjasonmiller/image-filter?style=social)  ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/imjasonmiller/image-filter/Build and test?style=social)
 
 A playground in which I experiment and learn about image filters.
 
@@ -14,6 +14,7 @@ A playground in which I experiment and learn about image filters.
 `-y`              | Crop y-coordinate | 0
 `-w` / `--width`  | Crop width        | Image width
 `-h` / `--height` | Crop height       | Image width
+`-v`              | Verbose output    | false
 
 An explanation for each setting can also be found via:
 ```shell
