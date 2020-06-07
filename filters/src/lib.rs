@@ -188,3 +188,34 @@ where
         });
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn weightedelement_into_u8() {
+        for expect in 0..u8::MAX {
+            let result: u8 = WeightedElement(expect as f64).into();
+
+            assert_eq!(expect, result);
+        }
+    }
+
+    #[test]
+    fn weightedelement_clamp_min() {
+        let values: Vec<f64> = vec![-0.0, -0.25, -0.5, -1.0, -1.5, -2.0, -100.0 - 1000.0];
+
+        for value in values.into_iter() {
+            assert_eq!(0u8, WeightedElement(value).into());
+        }
+    }
+
+    #[test]
+    fn weightedelement_clamp_max() {
+        let values: Vec<f64> = vec![255.0, 255.25, 255.5, 256.0, 300.0, 2000.0, 5000.0];
+
+        for value in values.into_iter() {
+            assert_eq!(255u8, WeightedElement(value).into());
+        }
+    }
+}
