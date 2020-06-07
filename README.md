@@ -34,9 +34,9 @@ $ image-filter -i input.jpg -x 160 -y 160 -w 400 -h 400 gaussian1d -s 50.0
 
 ### Box blur
 
- Flag             | Details            | Default
-------------------|--------------------|-----------
-`-r` / `--radius` | Radius of the blur | 1
+ Flag             | Details                | Default
+------------------|------------------------|-----------
+`-r` / `--radius` | Blur strength (radius) | 1
 
 <img align="right" width="144" height="144" src="img/box_blur.jpg">
 
@@ -49,9 +49,9 @@ $ image-filter -i a.jpg -o b.jpg box_blur_2d -r 10.0
 
 ### Gaussian blur
 
- Flag            | Details              | Default
------------------|----------------------|-----------
-`-s` / `--sigma` | Strength of the blur | 0.84089642
+ Flag            | Details               | Default
+-----------------|-----------------------|-----------
+`-s` / `--sigma` | Blur strength (sigma) | 0.84089642
 
 <img align="right" width="144" height="144" src="img/gaussian_blur.jpg">
 
@@ -64,9 +64,9 @@ $ image-filter -i a.jpg -o b.jpg gaussian_blur_2d -s 10.0
 
 ### Sobel
 
- Flag            | Details              | Default
------------------|----------------------|-----------
-`-s` / `--sigma` | Strength of the blur | None
+ Flag            | Details               | Default
+-----------------|-----------------------|-----------
+`-s` / `--sigma` | Blur strength (sigma) | None
 
 <img align="right" width="144" height="144" src="img/sobel.jpg">
 
