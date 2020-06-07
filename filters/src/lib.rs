@@ -191,6 +191,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use itertools::Itertools;
 
     #[test]
     fn weightedelement_into_u8() {
@@ -218,4 +219,17 @@ mod tests {
             assert_eq!(255u8, WeightedElement(value).into());
         }
     }
+
+    #[test]
+    fn weightedelement_add_assign() {
+        for n in (0..=255).combinations(2) {
+            let expect = (n[0] + n[1]) as f64;
+
+            let mut result = WeightedElement(n[0] as f64);
+            result += WeightedElement(n[1] as f64);
+
+            assert_eq!(expect, result.0);
+        }
+    }
 }
+

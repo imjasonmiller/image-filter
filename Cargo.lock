@@ -266,6 +266,7 @@ name = "filters"
 version = "0.1.0"
 dependencies = [
  "approx",
+ "itertools",
  "ndarray",
  "rayon",
 ]
