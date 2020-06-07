@@ -2,7 +2,24 @@ use ndarray::prelude::*;
 use ndarray::Array;
 use std::iter::FromIterator;
 
-pub fn gaussian_kernel_1d(sigma: f64) -> (Array2<f64>, Array2<f64>) {
+pub fn box_blur_kernel_1d(radius: usize) -> (Array2<f64>, Array2<f64>) {
+    let kernel = Array::<f64, _>::ones((1, radius * 2 + 1).into_shape());
+
+    // Return normalized kernels
+    let kernel_x = &kernel / kernel.sum();
+    let kernel_y = kernel_x.clone().reversed_axes();
+
+    (kernel_x, kernel_y)
+}
+
+pub fn box_blur_kernel_2d(radius: usize) -> Array2<f64> {
+    let kernel = Array::<f64, _>::ones((radius * 2 + 1, radius * 2 + 1).into_shape());
+
+    // Return normalized kernel
+    &kernel / kernel.sum()
+}
+
+pub fn gaussian_blur_kernel_1d(sigma: f64) -> (Array2<f64>, Array2<f64>) {
     if sigma <= 0.0 {
         panic!("sigma should be > 0.0")
     }
@@ -23,7 +40,7 @@ pub fn gaussian_kernel_1d(sigma: f64) -> (Array2<f64>, Array2<f64>) {
     (kernel_x, kernel_y)
 }
 
-pub fn gaussian_kernel_2d(sigma: f64) -> Array2<f64> {
+pub fn gaussian_blur_kernel_2d(sigma: f64) -> Array2<f64> {
     if sigma <= 0.0 {
         panic!("sigma should be > 0.0")
     }
@@ -70,25 +87,25 @@ mod tests {
     #[test]
     #[should_panic(expected = "sigma should be > 0.0")]
     fn invalid_zero_gaussian_kernel_1d() {
-        gaussian_kernel_1d(0.0);
+        gaussian_blur_kernel_1d(0.0);
     }
 
     #[test]
     #[should_panic(expected = "sigma should be > 0.0")]
     fn invalid_negative_gaussian_kernel_1d() {
-        gaussian_kernel_1d(-1.0);
+        gaussian_blur_kernel_1d(-1.0);
     }
 
     #[test]
     #[should_panic(expected = "sigma should be > 0.0")]
     fn invalid_zero_gaussian_kernel_2d() {
-        gaussian_kernel_2d(0.0);
+        gaussian_blur_kernel_2d(0.0);
     }
 
     #[test]
     #[should_panic(expected = "sigma should be > 0.0")]
     fn invalid_negative_gaussian_kernel_2d() {
-        gaussian_kernel_2d(-1.0);
+        gaussian_blur_kernel_2d(-1.0);
     }
 
     #[test]
@@ -97,7 +114,7 @@ mod tests {
             0.00081721, 0.02804152, 0.23392642, 0.47442967, 0.23392642, 0.02804152, 0.00081721,
         ]];
 
-        for ((i, j), result) in gaussian_kernel_1d(0.84089642).0.indexed_iter() {
+        for ((i, j), result) in gaussian_blur_kernel_1d(0.84089642).0.indexed_iter() {
             assert_relative_eq!(expect[i][j], result, epsilon = 1e-8f64);
         }
     }
@@ -128,7 +145,7 @@ mod tests {
             ],
         ];
 
-        for ((i, j), result) in gaussian_kernel_2d(0.84089642).indexed_iter() {
+        for ((i, j), result) in gaussian_blur_kernel_2d(0.84089642).indexed_iter() {
             assert_relative_eq!(expect[i][j], result, epsilon = 1e-8f64);
         }
     }

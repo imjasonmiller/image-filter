@@ -29,12 +29,12 @@ impl std::ops::AddAssign for WeightedElement {
     }
 }
 
-pub fn gaussian_1d<T>(img: &mut Image<T>, sigma: f64)
+pub fn box_blur_1d<T>(img: &mut Image<T>, radius: usize)
 where
     T: Sync + Send + Copy + Into<f64>,
     WeightedElement: Into<T>,
 {
-    let (kernel_x, kernel_y) = kernel::gaussian_kernel_1d(sigma);
+    let (kernel_x, kernel_y) = kernel::box_blur_kernel_1d(radius);
 
     // Blur along the x-axis
     convolve(img, &kernel_x);
@@ -46,21 +46,55 @@ where
     convolve(img, &kernel_y)
 }
 
-pub fn gaussian_2d<T>(img: &mut Image<T>, sigma: f64)
+pub fn box_blur_2d<T>(img: &mut Image<T>, radius: usize)
 where
     T: Sync + Send + Copy + Into<f64>,
     WeightedElement: Into<T>,
 {
-    let kernel = kernel::gaussian_kernel_2d(sigma);
+    let kernel = kernel::box_blur_kernel_2d(radius);
 
     convolve(img, &kernel);
 }
 
-pub fn sobel2d<T>(img: &mut Image<T>)
+pub fn gaussian_blur_1d<T>(img: &mut Image<T>, sigma: f64)
 where
     T: Sync + Send + Copy + Into<f64>,
     WeightedElement: Into<T>,
 {
+    let (kernel_x, kernel_y) = kernel::gaussian_blur_kernel_1d(sigma);
+
+    // Blur along the x-axis
+    convolve(img, &kernel_x);
+
+    // Use the previous buffer as source for the second pass
+    img.source.copy_from_slice(img.buffer);
+
+    // Blur along the y-axis
+    convolve(img, &kernel_y)
+}
+
+pub fn gaussian_blur_2d<T>(img: &mut Image<T>, sigma: f64)
+where
+    T: Sync + Send + Copy + Into<f64>,
+    WeightedElement: Into<T>,
+{
+    let kernel = kernel::gaussian_blur_kernel_2d(sigma);
+
+    convolve(img, &kernel);
+}
+
+pub fn sobel2d<T>(img: &mut Image<T>, sigma: Option<f64>)
+where
+    T: Sync + Send + Copy + Into<f64>,
+    WeightedElement: Into<T>,
+{
+    if let Some(sigma) = sigma {
+        gaussian_blur_1d(img, sigma);
+
+        // Use the previous buffer as source for the second pass
+        img.source.copy_from_slice(img.buffer);
+    }
+
     let (kernel_x, kernel_y) = kernel::sobel2d();
 
     // Change color to Luma

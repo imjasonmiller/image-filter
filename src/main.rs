@@ -1,5 +1,5 @@
 use clap::{crate_authors, crate_version, AppSettings::SubcommandRequiredElseHelp, Clap};
-use filters::{gaussian_1d, gaussian_2d, sobel2d, Image};
+use filters::{box_blur_1d, box_blur_2d, gaussian_blur_1d, gaussian_blur_2d, sobel2d, Image};
 use image::{imageops, DynamicImage, ImageBuffer, RgbImage};
 use std::path::{Path, PathBuf};
 
@@ -34,16 +34,26 @@ enum Edges {
 
 #[derive(Clap)]
 enum Filter {
-    #[clap(name = "gaussian1d")]
-    Gaussian1D(Gaussian),
-    #[clap(name = "gaussian2d")]
-    Gaussian2D(Gaussian),
-    #[clap(name = "sobel2d")]
+    #[clap(name = "box_blur_1d")]
+    BoxBlur1D(BoxBlur),
+    #[clap(name = "box_blur_2d")]
+    BoxBlur2D(BoxBlur),
+    #[clap(name = "gaussian_blur_1d")]
+    GaussianBlur1D(GaussianBlur),
+    #[clap(name = "gaussian_blur_2d")]
+    GaussianBlur2D(GaussianBlur),
+    #[clap(name = "sobel_2d")]
     Sobel2D(Sobel),
 }
 
 #[derive(Clap, Debug)]
-struct Gaussian {
+struct BoxBlur {
+    #[clap(short, long, default_value = "1")]
+    radius: usize,
+}
+
+#[derive(Clap, Debug)]
+struct GaussianBlur {
     #[clap(short, long, default_value = "0.84089642")]
     sigma: f64,
 }
@@ -138,20 +148,11 @@ fn main() -> Result<(), std::io::ErrorKind> {
     };
 
     match opts.filter {
-        Filter::Gaussian1D(Gaussian { sigma }) => gaussian_1d(&mut image, sigma),
-        Filter::Gaussian2D(Gaussian { sigma }) => gaussian_2d(&mut image, sigma),
-        Filter::Sobel2D(Sobel { sigma }) => {
-            // TODO: Perform Gaussian and Sobel in one step, not two
-            // Apply Gaussian blur if sigma is passed
-            if let Some(sigma) = sigma {
-                gaussian_1d(&mut image, sigma);
-
-                // Use the previous buffer as source for the second pass
-                image.source.copy_from_slice(image.buffer);
-            }
-
-            sobel2d(&mut image);
-        }
+        Filter::BoxBlur1D(BoxBlur { radius }) => box_blur_1d(&mut image, radius),
+        Filter::BoxBlur2D(BoxBlur { radius }) => box_blur_2d(&mut image, radius),
+        Filter::GaussianBlur1D(GaussianBlur { sigma }) => gaussian_blur_1d(&mut image, sigma),
+        Filter::GaussianBlur2D(GaussianBlur { sigma }) => gaussian_blur_2d(&mut image, sigma),
+        Filter::Sobel2D(Sobel { sigma }) => sobel2d(&mut image, sigma),
     }
 
     if opts.verbose {
