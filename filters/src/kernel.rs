@@ -151,6 +151,38 @@ mod tests {
     }
 
     #[test]
+    fn valid_box_blur_1d() {
+        for radius in 1..10 {
+            let (kernel_x, kernel_y) = box_blur_kernel_1d(radius);
+
+            let expect = kernel_x.sum() / kernel_x.len() as f64;
+
+            for result in kernel_x.iter() {
+                assert_relative_eq!(expect, result);
+            }
+
+            let expect = kernel_y.sum() / kernel_y.len() as f64;
+
+            for result in kernel_y.iter() {
+                assert_relative_eq!(expect, result);
+            }
+        }
+    }
+
+    #[test]
+    fn valid_box_blur_2d() {
+        for radius in 1..10 {
+            let kernel = box_blur_kernel_2d(radius);
+
+            let expect = kernel.sum() / kernel.len() as f64;
+
+            for result in kernel.iter() {
+                assert_relative_eq!(expect, result);
+            }
+        }
+    }
+
+    #[test]
     fn valid_sobel2d() {
         #[rustfmt::skip]
         let expect_x: [[f64; 3]; 3] = [
@@ -177,4 +209,3 @@ mod tests {
         }
     }
 }
-
