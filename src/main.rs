@@ -1,7 +1,10 @@
 use clap::{crate_authors, crate_version, AppSettings::SubcommandRequiredElseHelp, Clap};
 use filters::{box_blur_1d, box_blur_2d, gaussian_blur_1d, gaussian_blur_2d, sobel2d, Image};
-use image::{imageops, DynamicImage, ImageBuffer, RgbImage};
-use std::path::{Path, PathBuf};
+use image::{
+    flat::SampleLayout, imageops, GenericImage, GenericImageView, ImageBuffer, Rgba, SubImage,
+};
+use std::io::ErrorKind::*;
+use std::path::PathBuf;
 
 #[derive(Clap)]
 #[clap(setting = SubcommandRequiredElseHelp, version = crate_version!(), author = crate_authors!())]
@@ -64,88 +67,89 @@ struct Sobel {
     sigma: Option<f64>,
 }
 
-fn read_image(path: &PathBuf) -> Result<image::DynamicImage, std::io::ErrorKind> {
-    if !path.exists() {
-        return Err(std::io::ErrorKind::NotFound);
+fn crop_image<I>(
+    img: &I,
+    crop_x: u32,
+    crop_y: u32,
+    crop_w: Option<u32>,
+    crop_h: Option<u32>,
+) -> SubImage<&I>
+where
+    I: GenericImageView,
+{
+    let (width, height) = img.dimensions();
+
+    // If no crop width or height was specified, use the remaining space.
+    let crop_w = match crop_w {
+        Some(w) => w,
+        None => width - crop_x,
+    };
+    let crop_h = match crop_h {
+        Some(h) => h,
+        None => height - crop_y,
+    };
+
+    // Panic if crop exceeds image bounds
+    if crop_x >= width {
+        panic!("crop x-coord exceeds image width");
+    }
+    if crop_y >= height {
+        panic!("crop y-coord exceeds image height");
+    }
+    if crop_w + crop_x > width {
+        panic!("crop width exceeds image width");
+    }
+    if crop_h + crop_y > height {
+        panic!("crop height exceeds image height");
     }
 
-    if path.extension().unwrap() != "jpg" {
-        return Err(std::io::ErrorKind::InvalidInput);
-    }
-
-    match image::open(path) {
-        Ok(img) => Ok(img),
-        Err(_) => Err(std::io::ErrorKind::InvalidInput),
-    }
-}
-
-fn write_image(buf: &RgbImage, path: &PathBuf) {
-    if buf.save(&path).is_err() {
-        panic!("could not save image");
-    }
+    imageops::crop_imm(img, crop_x, crop_y, crop_w, crop_h)
 }
 
 fn main() -> Result<(), std::io::ErrorKind> {
     let opts: Opts = Opts::parse();
 
-    let o_path = Path::new(&opts.output);
-    o_path.exists();
-
-    let mut img = match read_image(&opts.input) {
-        Ok(DynamicImage::ImageRgb8(i)) => i,
-        _ => return Err(std::io::ErrorKind::InvalidInput),
-    };
-
-    let (img_w, img_h) = img.dimensions();
-
-    let crop_x = match opts.x {
-        n if n >= img_w => {
-            println!("crop -x set to 0, as crop exceeds image width");
-            0
-        }
-        n => n,
-    };
-    let crop_y = match opts.y {
-        n if n >= img_h => {
-            println!("crop -y set to 0, as crop exceeds image height");
-            0
-        }
-        n => n,
-    };
-    let crop_w = opts.width.map_or(img_w, |n| {
-        if crop_x + n > img_w {
-            println!("crop -w set to {}, as crop exceeds image width", img_w - n);
-            return img_w - n;
-        }
-        n
-    });
-    let crop_h = opts.height.map_or(img_h, |n| {
-        if crop_y + n > img_h {
-            println!("crop -h set to {}, as crop exceeds image height", img_h - n);
-            return img_h - n;
-        }
-        n
-    });
-
-    use std::time::Instant;
-    let start = Instant::now();
-
-    if opts.verbose {
-        println!("Filtering image...");
+    if !opts.input.exists() {
+        return Err(NotFound);
     }
 
-    let crop = imageops::crop(&mut img, crop_x, crop_y, crop_w, crop_h);
+    if opts.output.exists() {
+        return Err(AlreadyExists);
+    }
 
-    let mut source = crop.to_image();
-    let mut buffer = crop.to_image();
+    let mut file = match image::open(opts.input) {
+        Ok(f) => f,
+        _ => return Err(InvalidInput),
+    };
+
+    let crop = crop_image(&file, opts.x, opts.y, opts.width, opts.height);
+
+    // Create the read and write buffers
+    let mut buf_read: ImageBuffer<Rgba<_>, _> = crop.to_image();
+    let mut buf_write: ImageBuffer<Rgba<_>, _> = crop.to_image();
+
+    let SampleLayout {
+        width,
+        height,
+        channels,
+        ..
+    } = buf_read.sample_layout();
 
     let mut image = Image {
-        source: source.as_mut(),
-        buffer: buffer.as_mut(),
-        width: crop_w,
-        height: crop_h,
-        channel_count: 3,
+        buf_read: buf_read.as_mut(),
+        buf_write: buf_write.as_mut(),
+        width,
+        height,
+        channels: channels as usize,
     };
+
+    // Measure elapsed time
+    let start = std::time::Instant::now();
+
+    if opts.verbose {
+        eprintln!("Image channels: {}", channels);
+        eprintln!("Filtering image...");
+    }
 
     match opts.filter {
         Filter::BoxBlur1D(BoxBlur { radius }) => box_blur_1d(&mut image, radius),
@@ -156,14 +160,16 @@ fn main() -> Result<(), std::io::ErrorKind> {
     }
 
     if opts.verbose {
-        println!("Total time: {:?}", start.elapsed());
+        eprintln!("Total time: {:?}", start.elapsed());
     }
 
-    let result: ImageBuffer<image::Rgb<u8>, _> =
-        ImageBuffer::from_raw(image.width, image.height, image.buffer).unwrap();
+    // Overlay result on top of original image
+    file.copy_from(&buf_write, opts.x, opts.y).unwrap();
 
-    imageops::replace(&mut img, &result, crop_x, crop_y);
-    write_image(&img, &opts.output);
+    // Write image
+    if file.save(&opts.output).is_err() {
+        panic!("could not save image");
+    }
 
     Ok(())
 }

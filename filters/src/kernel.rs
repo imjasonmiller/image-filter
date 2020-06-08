@@ -61,7 +61,7 @@ pub fn gaussian_blur_kernel_2d(sigma: f64) -> Array2<f64> {
     &kernel / kernel.sum()
 }
 
-pub fn sobel2d() -> (Array2<f64>, Array2<f64>) {
+pub fn sobel_2d() -> (Array2<f64>, Array2<f64>) {
     #[rustfmt::skip]
     let kernel_x = array![
         [-1.0, 0.0, 1.0],
@@ -198,7 +198,7 @@ mod tests {
             [-1.0, -2.0, -1.0],
         ];
 
-        let (sobel2d_x, sobel2d_y) = sobel2d();
+        let (sobel2d_x, sobel2d_y) = sobel_2d();
 
         for ((i, j), result) in sobel2d_x.indexed_iter() {
             assert_relative_eq!(expect_x[i][j], result);
