@@ -9,11 +9,11 @@ pub fn bench_gaussian_1d(c: &mut Criterion) {
     let mut buffer = source.clone();
 
     let mut image = Image {
-        source: source.as_mut(),
-        buffer: buffer.as_mut(),
+        buf_read: source.as_mut(),
+        buf_write: buffer.as_mut(),
         width,
         height,
-        channel_count: 3,
+        channels: 3,
     };
 
     c.bench_function("gaussian_1d", |b| {
@@ -28,11 +28,11 @@ pub fn bench_gaussian_2d(c: &mut Criterion) {
     let mut buffer = source.clone();
 
     let mut image = Image {
-        source: source.as_mut(),
-        buffer: buffer.as_mut(),
+        buf_read: source.as_mut(),
+        buf_write: buffer.as_mut(),
         width,
         height,
-        channel_count: 3,
+        channels: 3,
     };
 
     c.bench_function("gaussian_2d", |b| {
