@@ -3,7 +3,6 @@ use filters::{box_blur_1d, box_blur_2d, gaussian_blur_1d, gaussian_blur_2d, sobe
 use image::{
     flat::SampleLayout, imageops, GenericImage, GenericImageView, ImageBuffer, Rgba, SubImage,
 };
-use std::io::ErrorKind::*;
 use std::path::PathBuf;
 
 #[derive(Clap)]
@@ -106,20 +105,20 @@ where
     imageops::crop_imm(img, crop_x, crop_y, crop_w, crop_h)
 }
 
-fn main() -> Result<(), std::io::ErrorKind> {
+fn main() {
     let opts: Opts = Opts::parse();
 
     if !opts.input.exists() {
-        return Err(NotFound);
+        panic!("Input not found");
     }
 
     if opts.output.exists() {
-        return Err(AlreadyExists);
+        panic!("Output already exists");
     }
 
     let mut file = match image::open(opts.input) {
         Ok(f) => f,
-        _ => return Err(InvalidInput),
+        _ => panic!("File could not be opened"),
     };
 
     let crop = crop_image(&file, opts.x, opts.y, opts.width, opts.height);
@@ -170,7 +169,5 @@ fn main() -> Result<(), std::io::ErrorKind> {
     if file.save(&opts.output).is_err() {
         panic!("could not save image");
     }
-
-    Ok(())
 }
 
