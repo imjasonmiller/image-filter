@@ -3,6 +3,7 @@ use rayon::prelude::*;
 
 mod kernel;
 
+#[derive(Debug, PartialEq, Default)]
 pub struct Image<'a, T>
 where
     T: Sync + Send + Copy + Into<f64>,
@@ -236,6 +237,20 @@ mod tests {
 
             assert_eq!(expect, result.0);
         }
+    }
+
+    #[test]
+    fn test_image_default() {
+        let actual = Image::<u8>::default();
+        let expect = Image {
+            buf_read: &mut [],
+            buf_write: &mut [],
+            width: 0,
+            height: 0,
+            channels: 0,
+        };
+
+        assert_eq!(actual, expect);
     }
 }
 
