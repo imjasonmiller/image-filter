@@ -108,18 +108,10 @@ where
 fn main() {
     let opts: Opts = Opts::parse();
 
-    if !opts.input.exists() {
-        panic!("Input not found");
-    }
+    assert!(opts.input.exists(), "input not found");
+    assert!(!opts.output.exists(), "output already exists");
 
-    if opts.output.exists() {
-        panic!("Output already exists");
-    }
-
-    let mut file = match image::open(opts.input) {
-        Ok(f) => f,
-        _ => panic!("File could not be opened"),
-    };
+    let mut file = image::open(opts.input).expect("File could not be opened");
 
     let crop = crop_image(&file, opts.x, opts.y, opts.width, opts.height);
 
@@ -166,8 +158,6 @@ fn main() {
     file.copy_from(&buf_write, opts.x, opts.y).unwrap();
 
     // Write image
-    if file.save(&opts.output).is_err() {
-        panic!("could not save image");
-    }
+    file.save(&opts.output).expect("could not save image");
 }
 
