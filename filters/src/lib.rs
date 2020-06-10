@@ -202,9 +202,8 @@ mod tests {
 
     #[test]
     fn weightedelement_into_u8() {
-        for expect in 0..u8::MAX {
+        for expect in 0..=u8::MAX {
             let result: u8 = WeightedElement(expect as f64).into();
-
             assert_eq!(expect, result);
         }
     }
