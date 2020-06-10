@@ -238,6 +238,44 @@ mod tests {
         }
     }
 
+    use image::{flat::SampleLayout, ImageBuffer, Rgb};
+
+    #[test]
+    fn text_box_blur_1d_rgb() {
+        // Create a 3×1 image
+        #[rustfmt::skip]
+        let pixels: ImageBuffer<Rgb<u8>, _> =
+            ImageBuffer::from_raw(3, 1, vec![
+                0, 0, 0,        // R
+                255, 255, 255,  // G
+                0, 0, 0         // B
+            ]).unwrap();
+
+        let SampleLayout {
+            width,
+            height,
+            channels,
+            ..
+        } = pixels.sample_layout();
+
+        let mut actual = Image {
+            buf_read: &mut pixels.clone(),
+            buf_write: &mut pixels.clone(),
+            width,
+            height,
+            channels: channels as usize,
+        };
+
+        box_blur_1d(&mut actual, 1);
+
+        #[rustfmt::skip]
+        assert_eq!(actual.buf_write, [
+            85, 85, 85, // R
+            85, 85, 85, // G
+            85, 85, 85  // B
+        ]);
+    }
+
     #[test]
     fn test_image_default() {
         let actual = Image::<u8>::default();
@@ -252,4 +290,3 @@ mod tests {
         assert_eq!(actual, expect);
     }
 }
-
