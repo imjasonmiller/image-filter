@@ -41,10 +41,10 @@ $ image-filter -i input.jpg -x 160 -y 160 -w 400 -h 400 gaussian1d -s 50.0
 <img align="right" width="144" height="144" src="img/box_blur.jpg">
 
 ```shell
-$ image-filter -i a.jpg -o b.jpg box_blur_1d -r 10.0
+$ image-filter -i a.jpg -o b.jpg box_blur_1d -r 10
 ```
 ```shell
-$ image-filter -i a.jpg -o b.jpg box_blur_2d -r 10.0
+$ image-filter -i a.jpg -o b.jpg box_blur_2d -r 10
 ```
 
 ### Gaussian blur
