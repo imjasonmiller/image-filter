@@ -20,9 +20,7 @@ pub fn box_blur_kernel_2d(radius: usize) -> Array2<f64> {
 }
 
 pub fn gaussian_blur_kernel_1d(sigma: f64) -> (Array2<f64>, Array2<f64>) {
-    if sigma <= 0.0 {
-        panic!("sigma should be > 0.0")
-    }
+    assert!(sigma > 0.0, "--sigma should be > 0.0");
 
     // Generate a 1×N Gaussian kernel
     let radius = sigma.ceil() as i64 * 3;
@@ -41,9 +39,7 @@ pub fn gaussian_blur_kernel_1d(sigma: f64) -> (Array2<f64>, Array2<f64>) {
 }
 
 pub fn gaussian_blur_kernel_2d(sigma: f64) -> Array2<f64> {
-    if sigma <= 0.0 {
-        panic!("sigma should be > 0.0")
-    }
+    assert!(sigma > 0.0, "--sigma should be > 0.0");
 
     // Generate an N×N Gaussian kernel
     let radius = sigma.ceil() as i64 * 3;
@@ -209,3 +205,4 @@ mod tests {
         }
     }
 }
+
