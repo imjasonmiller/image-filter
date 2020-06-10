@@ -79,28 +79,14 @@ where
     let (width, height) = img.dimensions();
 
     // If no crop width or height was specified, use the remaining space.
-    let crop_w = match crop_w {
-        Some(w) => w,
-        None => width - crop_x,
-    };
-    let crop_h = match crop_h {
-        Some(h) => h,
-        None => height - crop_y,
-    };
+    let crop_w = crop_w.unwrap_or(width - crop_x);
+    let crop_h = crop_h.unwrap_or(height - crop_y);
 
     // Panic if crop exceeds image bounds
-    if crop_x >= width {
-        panic!("crop x-coord exceeds image width");
-    }
-    if crop_y >= height {
-        panic!("crop y-coord exceeds image height");
-    }
-    if crop_w + crop_x > width {
-        panic!("crop width exceeds image width");
-    }
-    if crop_h + crop_y > height {
-        panic!("crop height exceeds image height");
-    }
+    assert!(crop_x <= width, "crop x-coord exceeds image width");
+    assert!(crop_y <= height, "crop y-coord exceeds image height");
+    assert!(crop_w + crop_x > width, "crop width exceeds image width");
+    assert!(crop_h + crop_y > height, "crop height exceeds image height");
 
     imageops::crop_imm(img, crop_x, crop_y, crop_w, crop_h)
 }
