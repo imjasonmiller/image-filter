@@ -2,11 +2,6 @@ use filters::{gaussian_blur_1d, gaussian_blur_2d, Image};
 use image::{flat::SampleLayout, GenericImage};
 use std::fs;
 
-// Remove generated file during a test
-fn teardown() {
-    fs::remove_file("tests/img/actual.jpg").unwrap();
-}
-
 #[test]
 fn test_gaussian_blur_1d() {
     // Setup
@@ -37,14 +32,16 @@ fn test_gaussian_blur_1d() {
     file.copy_from(&buf_write, 0, 0).unwrap();
 
     // Write file to disk
-    file.save("tests/img/actual.jpg").unwrap();
+    file.save("tests/img/actual_gaussian_blur_1d_sigma_3.jpg")
+        .unwrap();
 
     // Compare actual file data, as lossy compression might have changed the pixel values
-    let expect = fs::read("tests/img/gaussian_blur_1d_sigma_3.jpg").unwrap();
-    let actual = fs::read("tests/img/actual.jpg").unwrap();
+    let expect = fs::read("tests/img/expect_gaussian_blur_1d_sigma_3.jpg").unwrap();
+    let actual = fs::read("tests/img/actual_gaussian_blur_1d_sigma_3.jpg").unwrap();
     assert_eq!(expect, actual);
 
-    teardown();
+    // Teardown and remove generated artifacts
+    fs::remove_file("tests/img/actual_gaussian_blur_1d_sigma_3.jpg").unwrap();
 }
 
 #[test]
@@ -77,13 +74,15 @@ fn test_gaussian_blur_2d() {
     file.copy_from(&buf_write, 0, 0).unwrap();
 
     // Write file to disk
-    file.save("tests/img/actual.jpg").unwrap();
+    file.save("tests/img/actual_gaussian_blur_2d_sigma_3.jpg")
+        .unwrap();
 
     // Compare actual file data, as lossy compression might have changed the pixel values
-    let expect = fs::read("tests/img/gaussian_blur_2d_sigma_3.jpg").unwrap();
-    let actual = fs::read("tests/img/actual.jpg").unwrap();
+    let expect = fs::read("tests/img/expect_gaussian_blur_2d_sigma_3.jpg").unwrap();
+    let actual = fs::read("tests/img/actual_gaussian_blur_2d_sigma_3.jpg").unwrap();
     assert_eq!(expect, actual);
 
-    teardown();
+    // Teardown and remove generated artifacts
+    fs::remove_file("tests/img/actual_gaussian_blur_2d_sigma_3.jpg").unwrap();
 }
 
