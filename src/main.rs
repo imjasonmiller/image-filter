@@ -83,10 +83,10 @@ where
     let crop_h = crop_h.unwrap_or(height - crop_y);
 
     // Panic if crop exceeds image bounds
-    assert!(crop_x <= width, "crop x-coord exceeds image width");
-    assert!(crop_y <= height, "crop y-coord exceeds image height");
-    assert!(crop_w + crop_x > width, "crop width exceeds image width");
-    assert!(crop_h + crop_y > height, "crop height exceeds image height");
+    assert!(crop_x <= width, "-x exceeds image bounds");
+    assert!(crop_y <= height, "-y exceeds image bounds");
+    assert!(crop_w + crop_x <= width, "--width exceeds image bounds");
+    assert!(crop_h + crop_y <= height, "--height exceeds image bounds");
 
     imageops::crop_imm(img, crop_x, crop_y, crop_w, crop_h)
 }
@@ -145,5 +145,24 @@ fn main() {
 
     // Write image
     file.save(&opts.output).expect("could not save image");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::{ImageBuffer, Rgb};
+
+    #[test]
+    fn test_valid_crop() {
+        // Create a 3×1 image
+        let pixels: ImageBuffer<Rgb<u8>, _> =
+            ImageBuffer::from_raw(3, 1, vec![0, 0, 0, 255, 255, 255, 0, 0, 0]).unwrap();
+
+        let actual = crop_image(&pixels, 1, 0, Some(1), Some(1))
+            .to_image()
+            .into_raw();
+
+        assert_eq!(actual, [255, 255, 255]);
+    }
 }
 
