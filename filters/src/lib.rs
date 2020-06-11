@@ -171,40 +171,39 @@ where
         .par_chunks_exact_mut(width as usize * channels)
         .enumerate()
         .for_each(|(y, pixels)| {
-            // Instantiate weighted sum outside for loop for perf
-            let mut weighted_sum = vec![Weight(0.0); channels];
+            // Save on instantiation by only cloning the initialized array
+            let weighted_sum = [Weight(0.0); 4];
 
-            for (x, pixel) in pixels.chunks_exact_mut(channels).enumerate() {
-                // Clear weights
-                for weight in weighted_sum.iter_mut() {
-                    *weight = Weight(0.0);
-                }
+            pixels
+                .par_chunks_exact_mut(channels)
+                .map(|pixel| (pixel, weighted_sum.clone()))
+                .enumerate()
+                .for_each(|(x, (pixel, mut weighted_sum))| {
+                    for ((i, j), kernel_element) in kernel.indexed_iter() {
+                        // Clamp kernel to image bounds
+                        let edge_x = (x as isize + (j as isize - cols_half))
+                            .min(width as isize - 1)
+                            .max(0) as usize;
+                        let edge_y = (y as isize + (i as isize - rows_half))
+                            .min(height as isize - 1)
+                            .max(0) as usize;
 
-                for ((i, j), element) in kernel.indexed_iter() {
-                    // Clamp kernel to image bounds
-                    let edge_x = (x as isize + (j as isize - cols_half))
-                        .min(width as isize - 1)
-                        .max(0) as usize;
-                    let edge_y = (y as isize + (i as isize - rows_half))
-                        .min(height as isize - 1)
-                        .max(0) as usize;
+                        // Get pixel x- and y-coordinate
+                        let p_x = edge_x * channels;
+                        let p_y = edge_y * channels * width as usize;
 
-                    // Get respective pixel x- and y-coordinate
-                    let p_x = edge_x * channels;
-                    let p_y = edge_y * channels * width as usize;
+                        // Get pixel channels as a slice
+                        let pixel = buf_read.get((p_x + p_y)..(p_x + p_y) + channels).unwrap();
 
-                    // Get respective pixel as a slice of all channels
-                    let pixel = buf_read.get((p_x + p_y)..(p_x + p_y) + channels).unwrap();
-
-                    for (weight, &channel) in weighted_sum.iter_mut().zip(pixel) {
-                        *weight += Weight(channel.into() * element);
+                        for (weight, &channel) in weighted_sum.iter_mut().zip(pixel) {
+                            *weight += Weight(channel.into() * kernel_element);
+                        }
                     }
-                }
 
-                for (channel, &weight) in pixel.iter_mut().zip(&weighted_sum) {
-                    *channel = weight.into();
-                }
-            }
+                    for (channel, &weight) in pixel.iter_mut().zip(&weighted_sum) {
+                        *channel = weight.into();
+                    }
+                });
         });
 }
 
