@@ -16,15 +16,15 @@ where
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct WeightedElement(f64);
+pub struct Weight(f64);
 
-impl Into<u8> for WeightedElement {
+impl Into<u8> for Weight {
     fn into(self) -> u8 {
         self.0.min(255.0).max(0.0) as u8
     }
 }
 
-impl std::ops::AddAssign for WeightedElement {
+impl std::ops::AddAssign for Weight {
     fn add_assign(&mut self, other: Self) {
         *self = Self(self.0 + other.0);
     }
@@ -33,7 +33,7 @@ impl std::ops::AddAssign for WeightedElement {
 pub fn box_blur_1d<T>(img: &mut Image<T>, radius: usize)
 where
     T: Sync + Send + Copy + Into<f64>,
-    WeightedElement: Into<T>,
+    Weight: Into<T>,
 {
     let (kernel_x, kernel_y) = kernel::box_blur_kernel_1d(radius);
 
@@ -50,17 +50,24 @@ where
 pub fn box_blur_2d<T>(img: &mut Image<T>, radius: usize)
 where
     T: Sync + Send + Copy + Into<f64>,
-    WeightedElement: Into<T>,
+    Weight: Into<T>,
 {
     let kernel = kernel::box_blur_kernel_2d(radius);
 
     convolve(img, &kernel);
 }
 
+pub fn box_blur_1d_gpu<T>(img: &mut Image<T>, radius: usize)
+where
+    T: Sync + Send + Copy + Into<f64>,
+    Weight: Into<T>,
+{
+}
+
 pub fn gaussian_blur_1d<T>(img: &mut Image<T>, sigma: f64)
 where
     T: Sync + Send + Copy + Into<f64>,
-    WeightedElement: Into<T>,
+    Weight: Into<T>,
 {
     let (kernel_x, kernel_y) = kernel::gaussian_blur_kernel_1d(sigma);
 
@@ -77,7 +84,7 @@ where
 pub fn gaussian_blur_2d<T>(img: &mut Image<T>, sigma: f64)
 where
     T: Sync + Send + Copy + Into<f64>,
-    WeightedElement: Into<T>,
+    Weight: Into<T>,
 {
     let kernel = kernel::gaussian_blur_kernel_2d(sigma);
 
@@ -87,7 +94,7 @@ where
 pub fn sobel2d<T>(img: &mut Image<T>, sigma: Option<f64>)
 where
     T: Sync + Send + Copy + Into<f64>,
-    WeightedElement: Into<T>,
+    Weight: Into<T>,
 {
     // Apply Gaussian blur if -s / --sigma is passed
     if let Some(sigma) = sigma {
@@ -103,7 +110,7 @@ where
     // See: https://www.wikiwand.com/en/Grayscale#/Luma_coding_in_video_systems
     img.buf_read.par_chunks_mut(img.channels).for_each(|p| {
         #[rustfmt::skip]
-        let y = WeightedElement(
+        let y = Weight(
             0.299 * p[0].into() + // R
             0.587 * p[1].into() + // G
             0.114 * p[2].into()   // B
@@ -138,8 +145,7 @@ where
         .zip(tmp.par_chunks(channels))
         .for_each(|(gx, gy)| {
             for c in 0..channels {
-                gx[c] = WeightedElement(((gx[c].into()).powi(2) + (gy[c].into()).powi(2)).sqrt())
-                    .into();
+                gx[c] = Weight(((gx[c].into()).powi(2) + (gy[c].into()).powi(2)).sqrt()).into();
             }
         });
 }
@@ -147,10 +153,10 @@ where
 pub fn convolve<T>(img: &mut Image<T>, kernel: &Array2<f64>)
 where
     T: Sync + Send + Copy + Into<f64>,
-    WeightedElement: Into<T>,
+    Weight: Into<T>,
 {
-    let rows_half = kernel.nrows() as i32 / 2;
-    let cols_half = kernel.ncols() as i32 / 2;
+    let rows_half = kernel.nrows() as isize / 2;
+    let cols_half = kernel.ncols() as isize / 2;
 
     let Image {
         ref buf_read,
@@ -161,36 +167,43 @@ where
     } = *img;
 
     img.buf_write
-        .par_chunks_exact_mut(channels)
+        // Each thread processes one row of pixels
+        .par_chunks_exact_mut(width as usize * channels)
         .enumerate()
-        .for_each(|(i, pixel)| {
-            // Pixel x- and y-coordinate
-            let x = i as i32 % width as i32;
-            let y = i as i32 / width as i32;
+        .for_each(|(y, pixels)| {
+            // Instantiate weighted sum outside for loop for perf
+            let mut weighted_sum = vec![Weight(0.0); channels];
 
-            let mut weights = vec![WeightedElement(0.0); channels];
+            for (x, pixel) in pixels.chunks_exact_mut(channels).enumerate() {
+                // Clear weights
+                for weight in weighted_sum.iter_mut() {
+                    *weight = Weight(0.0);
+                }
 
-            for (i, kernel_y) in (y - rows_half..=y + rows_half).enumerate() {
-                for (j, kernel_x) in (x - cols_half..=x + cols_half).enumerate() {
-                    // Clamp kernel edges to image bounds
-                    let edge_x = kernel_x.min(width as i32 - 1).max(0) as usize;
-                    let edge_y = kernel_y.min(height as i32 - 1).max(0) as usize;
+                for ((i, j), element) in kernel.indexed_iter() {
+                    // Clamp kernel to image bounds
+                    let edge_x = (x as isize + (j as isize - cols_half))
+                        .min(width as isize - 1)
+                        .max(0) as usize;
+                    let edge_y = (y as isize + (i as isize - rows_half))
+                        .min(height as isize - 1)
+                        .max(0) as usize;
 
-                    // Kernel x- and y coordinate
+                    // Get respective pixel x- and y-coordinate
                     let p_x = edge_x * channels;
                     let p_y = edge_y * channels * width as usize;
 
-                    // Pixel slice with all channels
+                    // Get respective pixel as a slice of all channels
                     let pixel = buf_read.get((p_x + p_y)..(p_x + p_y) + channels).unwrap();
 
-                    for (weight, &channel) in weights.iter_mut().zip(pixel) {
-                        *weight += WeightedElement(channel.into() * kernel[[i, j]]);
+                    for (weight, &channel) in weighted_sum.iter_mut().zip(pixel) {
+                        *weight += Weight(channel.into() * element);
                     }
                 }
-            }
 
-            for c in 0..channels {
-                pixel[c] = weights[c].into();
+                for (channel, &weight) in pixel.iter_mut().zip(&weighted_sum) {
+                    *channel = weight.into();
+                }
             }
         });
 }
@@ -203,7 +216,7 @@ mod tests {
     #[test]
     fn weightedelement_into_u8() {
         for expect in 0..=u8::MAX {
-            let result: u8 = WeightedElement(expect as f64).into();
+            let result: u8 = Weight(expect as f64).into();
             assert_eq!(expect, result);
         }
     }
@@ -213,7 +226,7 @@ mod tests {
         let values: Vec<f64> = vec![-0.0, -0.25, -0.5, -1.0, -1.5, -2.0, -100.0 - 1000.0];
 
         for value in values.into_iter() {
-            assert_eq!(0u8, WeightedElement(value).into());
+            assert_eq!(0u8, Weight(value).into());
         }
     }
 
@@ -222,7 +235,7 @@ mod tests {
         let values: Vec<f64> = vec![255.0, 255.25, 255.5, 256.0, 300.0, 2000.0, 5000.0];
 
         for value in values.into_iter() {
-            assert_eq!(255u8, WeightedElement(value).into());
+            assert_eq!(255u8, Weight(value).into());
         }
     }
 
@@ -231,8 +244,8 @@ mod tests {
         for n in (0..=255).combinations(2) {
             let expect = (n[0] + n[1]) as f64;
 
-            let mut result = WeightedElement(n[0] as f64);
-            result += WeightedElement(n[1] as f64);
+            let mut result = Weight(n[0] as f64);
+            result += Weight(n[1] as f64);
 
             assert_eq!(expect, result.0);
         }

@@ -1,5 +1,7 @@
 use clap::{crate_authors, crate_version, AppSettings::SubcommandRequiredElseHelp, Clap};
-use filters::{box_blur_1d, box_blur_2d, gaussian_blur_1d, gaussian_blur_2d, sobel2d, Image};
+use filters::{
+    box_blur_1d, box_blur_1d_gpu, box_blur_2d, gaussian_blur_1d, gaussian_blur_2d, sobel2d, Image,
+};
 use image::{
     flat::SampleLayout, imageops, GenericImage, GenericImageView, ImageBuffer, Rgba, SubImage,
 };
@@ -38,6 +40,8 @@ enum Edges {
 enum Filter {
     #[clap(name = "box_blur_1d")]
     BoxBlur1D(BoxBlur),
+    #[clap(name = "box_blur_1d_gpu")]
+    BoxBlur1DGPU(BoxBlur),
     #[clap(name = "box_blur_2d")]
     BoxBlur2D(BoxBlur),
     #[clap(name = "gaussian_blur_1d")]
@@ -130,6 +134,7 @@ fn main() {
 
     match opts.filter {
         Filter::BoxBlur1D(BoxBlur { radius }) => box_blur_1d(&mut image, radius),
+        Filter::BoxBlur1DGPU(BoxBlur { radius }) => box_blur_1d_gpu(&mut image, radius),
         Filter::BoxBlur2D(BoxBlur { radius }) => box_blur_2d(&mut image, radius),
         Filter::GaussianBlur1D(GaussianBlur { sigma }) => gaussian_blur_1d(&mut image, sigma),
         Filter::GaussianBlur2D(GaussianBlur { sigma }) => gaussian_blur_2d(&mut image, sigma),
