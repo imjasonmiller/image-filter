@@ -20,13 +20,21 @@ layout(set = 0, binding = 2, rgba8) uniform restrict image2D image;
 
 void main() {
 
-    ivec2 pixel = ivec2(gl_WorkGroupID.xy * uvec2(32, 32) +  gl_LocalInvocationID.xy);
+    ivec2 dimensions = imageSize(image);
+    ivec2 pixel = ivec2(gl_WorkGroupID.xy * uvec2(LOCAL_SIZE, LOCAL_SIZE) + gl_LocalInvocationID.xy);
 
-    vec4 res = vec4(0.0, 0.0, 0.0, 1.0);
+    vec4 res = vec4(0.0, 0.0, 0.0, 0.0);
 
     for (int i = -params.kernel_rad; i <= params.kernel_rad; i++) {
         for (int j = -params.kernel_rad; j <= params.kernel_rad; j++) {
-            res += imageLoad(image, pixel + ivec2(i, j)); 
+            ivec2 pos = pixel + ivec2(i, j);
+
+            ivec2 clamped = ivec2(
+                clamp(pixel.x + i, 0, dimensions.x - 1),
+                clamp(pixel.y + j, 0, dimensions.y - 1)
+            );
+
+            res += imageLoad(image, clamped); 
         }
     }
 

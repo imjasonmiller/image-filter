@@ -194,7 +194,7 @@ where
     });
 
     // Load compute shader
-    let compute_shader = include_bytes!("convolve.comp.spv");
+    let compute_shader = include_bytes!("shaders/convolve.comp.spv");
     let compute_module = device.create_shader_module(
         &wgpu::read_spirv(std::io::Cursor::new(&compute_shader[..])).unwrap(),
     );
@@ -322,6 +322,7 @@ where
 
     // Change color to Luma
     // See: https://www.wikiwand.com/en/Grayscale#/Luma_coding_in_video_systems
+    // FIXME: Allow for custom channels, use a sane default of 3 (RGB)
     img.buf_read.par_chunks_mut(img.channels).for_each(|p| {
         #[rustfmt::skip]
         let y = Weight(
@@ -352,6 +353,8 @@ where
     );
 
     let Image { channels, .. } = *img;
+    // FIXME: Allow for custom channels, use a sane default of 3 (RGB)
+    // let channels = 3;
 
     // Apply Pythagorean theorem to both buffers for the gradient magnitude
     img.buf_write

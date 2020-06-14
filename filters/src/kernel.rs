@@ -111,7 +111,7 @@ mod tests {
         ]];
 
         for ((i, j), result) in gaussian_blur_kernel_1d(0.84089642).0.indexed_iter() {
-            assert_relative_eq!(expect[i][j], result, epsilon = 1e-8f32);
+            assert_relative_eq!(expect[i][j], result, epsilon = 1e-7f32);
         }
     }
 
@@ -142,7 +142,7 @@ mod tests {
         ];
 
         for ((i, j), result) in gaussian_blur_kernel_2d(0.84089642).indexed_iter() {
-            assert_relative_eq!(expect[i][j], result, epsilon = 1e-8f32);
+            assert_relative_eq!(expect[i][j], result, epsilon = 1e-7f32);
         }
     }
 
