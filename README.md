@@ -74,7 +74,7 @@ $ image-filter -i a.jpg -o b.jpg gaussian_blur_2d -s 10.0
 $ image-filter -i a.jpg -o b.jpg sobel_2d -s 1.0
 ```
 
-## Benchmarking
+## Benchmarks
 Criterion is used to benchmark performance. See the [user
 guide](https://bheisler.github.io/criterion.rs/book/index.html) and
 documentation for information on how to generate reports.
@@ -97,8 +97,23 @@ To compare against a saved baseline:
 $ cargo bench --bench gaussian -- --load-baseline example_b --baseline example_a
 ```
 
+## Compiling compute shaders
+
+All filters are part of the `filters` library. If you wish to change or compile the compute
+shaders, you will have to use
+[`glslValidator`](https://github.com/KhronosGroup/glslang/releases) to compile
+them to SPIR-V.
+
+```shell
+$ glslangvalidator -V shader.comp -o shader.comp.spv
+```
+
+As the shaders are currently statically linked, `image-filter` will have to be
+recompiled as well.
+
 ## License
 
 * This project is released under the [MIT License](https://github.com/imjasonmiller/image-filter/blob/master/LICENSE.md)
 
 * Image, ["Chaotic Clouds of Jupiter"](https://www.jpl.nasa.gov/spaceimages/details.php?id=PIA22424), via NASA/JPL-Caltech/SwRI/MSSS/Gerald Eichstad/Sean Doran is [CC-NC-SA](https://creativecommons.org/licenses/nc-sa/1.0/)
+

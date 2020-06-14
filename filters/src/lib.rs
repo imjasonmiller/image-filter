@@ -57,11 +57,211 @@ where
     convolve(img, &kernel);
 }
 
-pub fn box_blur_1d_gpu<T>(img: &mut Image<T>, radius: usize)
+pub async fn box_blur_1d_gpu<'a, T>(image: &mut Image<'a, T>, radius: usize)
 where
-    T: Sync + Send + Copy + Into<f64>,
+    T: Sync + Send + Copy + Into<f64> + bytemuck::Pod + std::fmt::Debug,
     Weight: Into<T>,
 {
+    let (_, kernel_y) = kernel::box_blur_kernel_1d(radius);
+    // let kernel_slice_x = kernel_x.iter().map(|x| *x as f64).collect::<Vec<_>>();
+    let kernel_slice_x: Vec<f32> = vec![0.5, 0.5, 0.5, 0.1, 0.1, 0.1];
+    let _kernel_slice_y = kernel_y.iter().map(|x| *x as f64).collect::<Vec<_>>();
+
+    // Create a handle to the graphics/compute device
+    let adapter = wgpu::Instance::new()
+        .request_adapter(
+            &wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::Default,
+                compatible_surface: None,
+            },
+            wgpu::UnsafeExtensions::disallow(),
+            wgpu::BackendBit::PRIMARY,
+        )
+        .await
+        .unwrap();
+
+    let (device, queue) = adapter
+        .request_device(
+            &wgpu::DeviceDescriptor {
+                extensions: wgpu::Extensions::empty(),
+                limits: wgpu::Limits::default(),
+                shader_validation: true,
+            },
+            None,
+        )
+        .await
+        .unwrap();
+
+    let image_bytes = bytemuck::cast_slice(image.buf_read.as_ref());
+
+    // Create pipeline layout
+    let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: None,
+        bindings: &[
+            wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStage::COMPUTE,
+                ty: wgpu::BindingType::UniformBuffer { dynamic: false },
+                ..Default::default()
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 1,
+                visibility: wgpu::ShaderStage::COMPUTE,
+                ty: wgpu::BindingType::StorageTexture {
+                    dimension: wgpu::TextureViewDimension::D2,
+                    component_type: wgpu::TextureComponentType::Float,
+                    format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                    readonly: false,
+                },
+                ..Default::default()
+            },
+        ],
+    });
+
+    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        bind_group_layouts: &[&bind_group_layout],
+    });
+
+    // Create the kernel buffer
+    let kernel_buffer = device.create_buffer_with_data(
+        bytemuck::cast_slice(&kernel_slice_x),
+        wgpu::BufferUsage::UNIFORM,
+    );
+
+    // Create the texture
+    let texture_extent = wgpu::Extent3d {
+        width: image.width,
+        height: image.height,
+        depth: 1,
+    };
+
+    let texture = device.create_texture(&wgpu::TextureDescriptor {
+        label: None,
+        size: texture_extent,
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Rgba8Unorm,
+        usage: wgpu::TextureUsage::COPY_DST
+            | wgpu::TextureUsage::COPY_SRC
+            | wgpu::TextureUsage::STORAGE,
+    });
+
+    let texture_view = texture.create_default_view();
+
+    queue.write_texture(
+        wgpu::TextureCopyView {
+            texture: &texture,
+            mip_level: 0,
+            origin: wgpu::Origin3d::ZERO,
+        },
+        &image_bytes,
+        wgpu::TextureDataLayout {
+            offset: 0,
+            bytes_per_row: image.width * 4,
+            rows_per_image: 0,
+        },
+        texture_extent,
+    );
+
+    // Create bind group
+    let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: None,
+        layout: &bind_group_layout,
+        bindings: &[
+            wgpu::Binding {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(kernel_buffer.slice(..)),
+            },
+            wgpu::Binding {
+                binding: 1,
+                resource: wgpu::BindingResource::TextureView(&texture_view),
+            },
+        ],
+    });
+
+    // Load compute shader
+    let compute_shader = include_bytes!("box_blur_2d.comp.spv");
+    let compute_module = device.create_shader_module(
+        &wgpu::read_spirv(std::io::Cursor::new(&compute_shader[..])).unwrap(),
+    );
+
+    // Create the compute pipeline
+    let compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        layout: &pipeline_layout,
+        compute_stage: wgpu::ProgrammableStageDescriptor {
+            module: &compute_module,
+            entry_point: "main",
+        },
+    });
+
+    let mut encoder =
+        device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+
+    {
+        let mut cpass = encoder.begin_compute_pass();
+        cpass.set_pipeline(&compute_pipeline);
+        // Assign bind group to set 0
+        cpass.set_bind_group(0, &bind_group, &[]);
+        // Assign a multiple of local_size workgroups to the texture
+        let local_size = 32;
+        cpass.dispatch(
+            (image.width + local_size - 1) / local_size,
+            (image.height + local_size - 1) / local_size,
+            1,
+        );
+    }
+
+    // Create buffer to write the computed result to
+    let texture_output_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        label: None,
+        size: (4 * 768 * image.height) as wgpu::BufferAddress,
+        usage: wgpu::BufferUsage::MAP_READ | wgpu::BufferUsage::COPY_DST,
+        mapped_at_creation: false,
+    });
+
+    encoder.copy_texture_to_buffer(
+        wgpu::TextureCopyView {
+            texture: &texture,
+            mip_level: 0,
+            origin: wgpu::Origin3d::ZERO,
+        },
+        wgpu::BufferCopyView {
+            buffer: &texture_output_buffer,
+            layout: wgpu::TextureDataLayout {
+                offset: 0,
+                bytes_per_row: 768 * std::mem::size_of::<u32>() as u32,
+                rows_per_image: image.height,
+            },
+        },
+        texture_extent,
+    );
+
+    queue.submit(Some(encoder.finish()));
+
+    // Note that we're not calling `.await` here.
+    let texture_output_slice = texture_output_buffer.slice(..);
+    let texture_output_future = texture_output_slice.map_async(wgpu::MapMode::Read);
+
+    // Poll the device in a blocking manner so that our future resolves.
+    // In an actual application, `device.poll(...)` should
+    // be called in an event loop or on another thread.
+    device.poll(wgpu::Maintain::Wait);
+
+    if let Ok(()) = texture_output_future.await {
+        let data = texture_output_slice.get_mapped_range();
+
+        for row in 0..720 {
+            let bytes = bytemuck::cast_slice(&data[row * 768 * 4..row * 768 * 4 + 720 * 4]);
+            // let bytes = bytemuck::cast_slice(&example[row * 720 * 4..row * 720 * 4 + 720 * 4]);
+            image.buf_write[row * 720 * 4..row * 720 * 4 + 720 * 4].copy_from_slice(bytes);
+        }
+
+        drop(data);
+        texture_output_buffer.unmap();
+    } else {
+        panic!("failed to run compute on gpu!")
+    }
 }
 
 pub fn gaussian_blur_1d<T>(img: &mut Image<T>, sigma: f64)
@@ -167,7 +367,7 @@ where
     } = *img;
 
     img.buf_write
-        // Each thread processes one row of pixels
+        // Process one row of pixels for each thread
         .par_chunks_exact_mut(width as usize * channels)
         .enumerate()
         .for_each(|(y, pixels)| {

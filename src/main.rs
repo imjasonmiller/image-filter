@@ -134,7 +134,9 @@ fn main() {
 
     match opts.filter {
         Filter::BoxBlur1D(BoxBlur { radius }) => box_blur_1d(&mut image, radius),
-        Filter::BoxBlur1DGPU(BoxBlur { radius }) => box_blur_1d_gpu(&mut image, radius),
+        Filter::BoxBlur1DGPU(BoxBlur { radius }) => {
+            futures::executor::block_on(box_blur_1d_gpu(&mut image, radius))
+        }
         Filter::BoxBlur2D(BoxBlur { radius }) => box_blur_2d(&mut image, radius),
         Filter::GaussianBlur1D(GaussianBlur { sigma }) => gaussian_blur_1d(&mut image, sigma),
         Filter::GaussianBlur2D(GaussianBlur { sigma }) => gaussian_blur_2d(&mut image, sigma),
