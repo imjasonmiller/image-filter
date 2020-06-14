@@ -84,23 +84,29 @@ fn crop_image<I>(
     crop_y: u32,
     crop_w: Option<u32>,
     crop_h: Option<u32>,
-) -> SubImage<&I>
+) -> Result<SubImage<&I>, anyhow::Error>
 where
     I: GenericImageView,
 {
     let (width, height) = img.dimensions();
 
-    // If no crop width or height was specified, use the remaining space.
+    // If no crop width or height was specified,
+    // default to the full width and height of the image
     let crop_w = crop_w.unwrap_or(width - crop_x);
     let crop_h = crop_h.unwrap_or(height - crop_y);
 
-    // Panic if crop exceeds image bounds
-    assert!(crop_x <= width, "-x exceeds image bounds");
-    assert!(crop_y <= height, "-y exceeds image bounds");
-    assert!(crop_w + crop_x <= width, "--width exceeds image bounds");
-    assert!(crop_h + crop_y <= height, "--height exceeds image bounds");
+    ensure!(crop_x <= width, "Crop -x exceeds image bounds");
+    ensure!(crop_x <= height, "Crop -y exceeds image bounds");
+    ensure!(
+        crop_w + crop_x <= width,
+        "Crop --width exceeds image bounds"
+    );
+    ensure!(
+        crop_h + crop_y <= height,
+        "Crop --height exceeds image bounds"
+    );
 
-    imageops::crop_imm(img, crop_x, crop_y, crop_w, crop_h)
+    Ok(imageops::crop_imm(img, crop_x, crop_y, crop_w, crop_h))
 }
 
 fn main() -> Result<()> {
@@ -122,7 +128,8 @@ fn main() -> Result<()> {
     let mut file = image::open(opts.input.clone())
         .with_context(|| format!("Failed to open file {:?}", opts.input.display()))?;
 
-    let crop = crop_image(&file, opts.x, opts.y, opts.width, opts.height);
+    let crop = crop_image(&file, opts.x, opts.y, opts.width, opts.height)
+        .with_context(|| format!("Failed to crop image"))?;
 
     // Create the read and write buffers
     let mut buf_read: ImageBuffer<Rgba<_>, _> = crop.to_image();
@@ -194,6 +201,7 @@ mod tests {
             ImageBuffer::from_raw(3, 1, vec![0, 0, 0, 255, 255, 255, 0, 0, 0]).unwrap();
 
         let actual = crop_image(&pixels, 1, 0, Some(1), Some(1))
+            .unwrap()
             .to_image()
             .into_raw();
 
