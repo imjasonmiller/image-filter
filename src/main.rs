@@ -1,3 +1,4 @@
+use anyhow::{ensure, Context, Result};
 use clap::{
     crate_authors, crate_version,
     AppSettings::{ColoredHelp, DeriveDisplayOrder, SubcommandRequiredElseHelp},
@@ -102,16 +103,24 @@ where
     imageops::crop_imm(img, crop_x, crop_y, crop_w, crop_h)
 }
 
-fn main() {
+fn main() -> Result<()> {
     let opts: Opts = Opts::parse();
 
-    assert!(opts.input.exists(), "input not found");
-    assert!(
-        opts.force || !opts.output.exists(),
-        "output already exists, if you wish to overwrite use --force"
+    ensure!(
+        opts.input.exists(),
+        format!("Input: {:?} does not exist", opts.input.display())
     );
 
-    let mut file = image::open(opts.input).expect("File could not be opened");
+    ensure!(
+        !opts.output.exists() || opts.force,
+        format!(
+            "Output {:?} exists. To overwrite files, use --force.",
+            opts.output.display()
+        )
+    );
+
+    let mut file = image::open(opts.input.clone())
+        .with_context(|| format!("Failed to open file {:?}", opts.input.display()))?;
 
     let crop = crop_image(&file, opts.x, opts.y, opts.width, opts.height);
 
@@ -138,8 +147,14 @@ fn main() {
     let start = std::time::Instant::now();
 
     if opts.verbose {
-        eprintln!("Image channels: {}", channels);
-        eprintln!("Filtering...");
+        eprintln!(
+            "Image:\n  \
+             width: {}\n  \
+             height: {}\n  \
+             channels: {}\n  \
+        ",
+            width, height, channels
+        );
     }
 
     match opts.filter {
@@ -154,14 +169,17 @@ fn main() {
     }
 
     if opts.verbose {
-        eprintln!("Filter duration: {:?}", start.elapsed());
+        eprintln!("Time elapsed: {:?} ms", start.elapsed().as_millis());
     }
 
     // Overlay result on top of original image
-    file.copy_from(&buf_write, opts.x, opts.y).unwrap();
+    file.copy_from(&buf_write, opts.x, opts.y)
+        .with_context(|| format!("Could not write buffer to image"))?;
 
-    // Write image
-    file.save(&opts.output).expect("could not save image");
+    file.save(opts.output.clone())
+        .with_context(|| format!("Failed to save file {:?}", opts.output.display()))?;
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -182,3 +200,4 @@ mod tests {
         assert_eq!(actual, [255, 255, 255]);
     }
 }
+
