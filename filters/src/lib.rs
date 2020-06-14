@@ -6,7 +6,7 @@ mod kernel;
 #[derive(Debug, PartialEq, Default)]
 pub struct Image<'a, T>
 where
-    T: Sync + Send + Copy + Into<f64>,
+    T: Sync + Send + Copy + Into<f32>,
 {
     pub buf_read: &'a mut [T],
     pub buf_write: &'a mut [T],
@@ -16,7 +16,7 @@ where
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct Weight(f64);
+pub struct Weight(f32);
 
 impl Into<u8> for Weight {
     fn into(self) -> u8 {
@@ -32,7 +32,7 @@ impl std::ops::AddAssign for Weight {
 
 pub fn box_blur_1d<T>(img: &mut Image<T>, radius: usize)
 where
-    T: Sync + Send + Copy + Into<f64>,
+    T: Sync + Send + Copy + Into<f32>,
     Weight: Into<T>,
 {
     let (kernel_x, kernel_y) = kernel::box_blur_kernel_1d(radius);
@@ -49,7 +49,7 @@ where
 
 pub fn box_blur_2d<T>(img: &mut Image<T>, radius: usize)
 where
-    T: Sync + Send + Copy + Into<f64>,
+    T: Sync + Send + Copy + Into<f32>,
     Weight: Into<T>,
 {
     let kernel = kernel::box_blur_kernel_2d(radius);
@@ -59,7 +59,7 @@ where
 
 pub async fn box_blur_1d_gpu<'a, T>(image: &mut Image<'a, T>, radius: usize)
 where
-    T: Sync + Send + Copy + Into<f64> + bytemuck::Pod + std::fmt::Debug,
+    T: Sync + Send + Copy + Into<f32> + bytemuck::Pod + std::fmt::Debug,
     Weight: Into<T>,
 {
     let kernel = kernel::box_blur_kernel_2d(radius);
@@ -278,9 +278,9 @@ where
     }
 }
 
-pub fn gaussian_blur_1d<T>(img: &mut Image<T>, sigma: f64)
+pub fn gaussian_blur_1d<T>(img: &mut Image<T>, sigma: f32)
 where
-    T: Sync + Send + Copy + Into<f64>,
+    T: Sync + Send + Copy + Into<f32>,
     Weight: Into<T>,
 {
     let (kernel_x, kernel_y) = kernel::gaussian_blur_kernel_1d(sigma);
@@ -295,9 +295,9 @@ where
     convolve(img, &kernel_y)
 }
 
-pub fn gaussian_blur_2d<T>(img: &mut Image<T>, sigma: f64)
+pub fn gaussian_blur_2d<T>(img: &mut Image<T>, sigma: f32)
 where
-    T: Sync + Send + Copy + Into<f64>,
+    T: Sync + Send + Copy + Into<f32>,
     Weight: Into<T>,
 {
     let kernel = kernel::gaussian_blur_kernel_2d(sigma);
@@ -305,9 +305,9 @@ where
     convolve(img, &kernel);
 }
 
-pub fn sobel2d<T>(img: &mut Image<T>, sigma: Option<f64>)
+pub fn sobel2d<T>(img: &mut Image<T>, sigma: Option<f32>)
 where
-    T: Sync + Send + Copy + Into<f64>,
+    T: Sync + Send + Copy + Into<f32>,
     Weight: Into<T>,
 {
     // Apply Gaussian blur if -s / --sigma is passed
@@ -364,9 +364,9 @@ where
         });
 }
 
-pub fn convolve<T>(img: &mut Image<T>, kernel: &Array2<f64>)
+pub fn convolve<T>(img: &mut Image<T>, kernel: &Array2<f32>)
 where
-    T: Sync + Send + Copy + Into<f64>,
+    T: Sync + Send + Copy + Into<f32>,
     Weight: Into<T>,
 {
     let rows_half = kernel.nrows() as isize / 2;
@@ -429,14 +429,14 @@ mod tests {
     #[test]
     fn weightedelement_into_u8() {
         for expect in 0..=u8::MAX {
-            let result: u8 = Weight(expect as f64).into();
+            let result: u8 = Weight(expect as f32).into();
             assert_eq!(expect, result);
         }
     }
 
     #[test]
     fn weightedelement_clamp_min() {
-        let values: Vec<f64> = vec![-0.0, -0.25, -0.5, -1.0, -1.5, -2.0, -100.0 - 1000.0];
+        let values: Vec<f32> = vec![-0.0, -0.25, -0.5, -1.0, -1.5, -2.0, -100.0 - 1000.0];
 
         for value in values.into_iter() {
             assert_eq!(0u8, Weight(value).into());
@@ -445,7 +445,7 @@ mod tests {
 
     #[test]
     fn weightedelement_clamp_max() {
-        let values: Vec<f64> = vec![255.0, 255.25, 255.5, 256.0, 300.0, 2000.0, 5000.0];
+        let values: Vec<f32> = vec![255.0, 255.25, 255.5, 256.0, 300.0, 2000.0, 5000.0];
 
         for value in values.into_iter() {
             assert_eq!(255u8, Weight(value).into());
@@ -455,10 +455,10 @@ mod tests {
     #[test]
     fn weightedelement_add_assign() {
         for n in (0..=255).combinations(2) {
-            let expect = (n[0] + n[1]) as f64;
+            let expect = (n[0] + n[1]) as f32;
 
-            let mut result = Weight(n[0] as f64);
-            result += Weight(n[1] as f64);
+            let mut result = Weight(n[0] as f32);
+            result += Weight(n[1] as f32);
 
             assert_eq!(expect, result.0);
         }

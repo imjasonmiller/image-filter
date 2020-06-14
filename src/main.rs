@@ -68,13 +68,13 @@ struct BoxBlur {
 #[derive(Clap, Debug)]
 struct GaussianBlur {
     #[clap(short, long, default_value = "0.84089642")]
-    sigma: f64,
+    sigma: f32,
 }
 
 #[derive(Clap, Debug)]
 struct Sobel {
     #[clap(short, long)]
-    sigma: Option<f64>,
+    sigma: Option<f32>,
 }
 
 fn crop_image<I>(
