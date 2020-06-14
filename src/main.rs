@@ -1,4 +1,8 @@
-use clap::{crate_authors, crate_version, AppSettings::SubcommandRequiredElseHelp, Clap};
+use clap::{
+    crate_authors, crate_version,
+    AppSettings::{ColoredHelp, DeriveDisplayOrder, SubcommandRequiredElseHelp},
+    Clap,
+};
 use filters::{
     box_blur_1d, box_blur_1d_gpu, box_blur_2d, gaussian_blur_1d, gaussian_blur_2d, sobel2d, Image,
 };
@@ -18,15 +22,17 @@ struct Opts {
     output: PathBuf,
     // #[clap(short, long, arg_enum, default_value = "crop")]
     // edges: Edges,
-    #[clap(short, default_value = "0")]
+    #[clap(short, default_value = "0", about = "Crop x-coordinate")]
     x: u32,
-    #[clap(short, default_value = "0")]
+    #[clap(short, default_value = "0", about = "Crop y-coordinate")]
     y: u32,
-    #[clap(short, long)]
+    #[clap(short, long, about = "Crop width")]
     width: Option<u32>,
-    #[clap(short, long)]
+    #[clap(short, long, about = "Crop height")]
     height: Option<u32>,
-    #[clap(short, long)]
+    #[clap(short, long, about = "Force output file overwrite")]
+    force: bool,
+    #[clap(short, long, about = "Increase logging verbosity")]
     verbose: bool,
 }
 
@@ -37,6 +43,7 @@ enum Edges {
 }
 
 #[derive(Clap)]
+#[clap(setting = ColoredHelp, setting = DeriveDisplayOrder)]
 enum Filter {
     #[clap(name = "box_blur_1d")]
     BoxBlur1D(BoxBlur),
@@ -99,7 +106,10 @@ fn main() {
     let opts: Opts = Opts::parse();
 
     assert!(opts.input.exists(), "input not found");
-    assert!(!opts.output.exists(), "output already exists");
+    assert!(
+        opts.force || !opts.output.exists(),
+        "output already exists, if you wish to overwrite use --force"
+    );
 
     let mut file = image::open(opts.input).expect("File could not be opened");
 
@@ -172,4 +182,3 @@ mod tests {
         assert_eq!(actual, [255, 255, 255]);
     }
 }
-
