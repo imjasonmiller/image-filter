@@ -62,10 +62,8 @@ where
     T: Sync + Send + Copy + Into<f64> + bytemuck::Pod + std::fmt::Debug,
     Weight: Into<T>,
 {
-    let (_, kernel_y) = kernel::box_blur_kernel_1d(radius);
-    // let kernel_slice_x = kernel_x.iter().map(|x| *x as f64).collect::<Vec<_>>();
-    let kernel_slice_x: Vec<f32> = vec![0.5, 0.5, 0.5, 0.1, 0.1, 0.1];
-    let _kernel_slice_y = kernel_y.iter().map(|x| *x as f64).collect::<Vec<_>>();
+    let kernel = kernel::box_blur_kernel_2d(radius);
+    let kernel_slice = kernel.iter().map(|x| *x as f32).collect::<Vec<_>>();
 
     // Create a handle to the graphics/compute device
     let adapter = wgpu::Instance::new()
@@ -107,6 +105,12 @@ where
             wgpu::BindGroupLayoutEntry {
                 binding: 1,
                 visibility: wgpu::ShaderStage::COMPUTE,
+                ty: wgpu::BindingType::UniformBuffer { dynamic: false },
+                ..Default::default()
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 2,
+                visibility: wgpu::ShaderStage::COMPUTE,
                 ty: wgpu::BindingType::StorageTexture {
                     dimension: wgpu::TextureViewDimension::D2,
                     component_type: wgpu::TextureComponentType::Float,
@@ -122,9 +126,14 @@ where
         bind_group_layouts: &[&bind_group_layout],
     });
 
-    // Create the kernel buffer
-    let kernel_buffer = device.create_buffer_with_data(
-        bytemuck::cast_slice(&kernel_slice_x),
+    // Create the kernel buffers
+    let kernel_radius_buffer = device.create_buffer_with_data(
+        bytemuck::cast_slice(&[kernel.ncols() as i32 / 2]),
+        wgpu::BufferUsage::UNIFORM,
+    );
+
+    let kernel_weights_buffer = device.create_buffer_with_data(
+        bytemuck::cast_slice(&kernel_slice),
         wgpu::BufferUsage::UNIFORM,
     );
 
@@ -171,17 +180,21 @@ where
         bindings: &[
             wgpu::Binding {
                 binding: 0,
-                resource: wgpu::BindingResource::Buffer(kernel_buffer.slice(..)),
+                resource: wgpu::BindingResource::Buffer(kernel_radius_buffer.slice(..)),
             },
             wgpu::Binding {
                 binding: 1,
+                resource: wgpu::BindingResource::Buffer(kernel_weights_buffer.slice(..)),
+            },
+            wgpu::Binding {
+                binding: 2,
                 resource: wgpu::BindingResource::TextureView(&texture_view),
             },
         ],
     });
 
     // Load compute shader
-    let compute_shader = include_bytes!("box_blur_2d.comp.spv");
+    let compute_shader = include_bytes!("convolve.comp.spv");
     let compute_module = device.create_shader_module(
         &wgpu::read_spirv(std::io::Cursor::new(&compute_shader[..])).unwrap(),
     );
@@ -251,6 +264,7 @@ where
     if let Ok(()) = texture_output_future.await {
         let data = texture_output_slice.get_mapped_range();
 
+        // TODO: Handle arbitrary image width and height
         for row in 0..720 {
             let bytes = bytemuck::cast_slice(&data[row * 768 * 4..row * 768 * 4 + 720 * 4]);
             // let bytes = bytemuck::cast_slice(&example[row * 720 * 4..row * 720 * 4 + 720 * 4]);

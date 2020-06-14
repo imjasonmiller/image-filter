@@ -139,7 +139,7 @@ fn main() {
 
     if opts.verbose {
         eprintln!("Image channels: {}", channels);
-        eprintln!("Filtering image...");
+        eprintln!("Filtering...");
     }
 
     match opts.filter {
@@ -154,7 +154,7 @@ fn main() {
     }
 
     if opts.verbose {
-        eprintln!("Total time: {:?}", start.elapsed());
+        eprintln!("Filter duration: {:?}", start.elapsed());
     }
 
     // Overlay result on top of original image

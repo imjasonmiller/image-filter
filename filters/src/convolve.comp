@@ -1,0 +1,37 @@
+#version 450
+
+#extension GL_KHR_shader_subgroup_vote: enable
+#extension GL_KHR_shader_subgroup_arithmetic: enable
+
+// This should match local_size defined in filters/src/lib.rs
+#define LOCAL_SIZE 32
+
+layout(local_size_x = LOCAL_SIZE, local_size_y = LOCAL_SIZE) in;
+
+layout(std140, set = 0, binding = 0) uniform Kernel {
+    int kernel_rad;
+} params;
+
+layout(set = 0, binding = 1) buffer readonly Kernel {
+    float[] weights;
+};
+
+layout(set = 0, binding = 2, rgba8) uniform restrict image2D image;
+
+void main() {
+
+    ivec2 pixel = ivec2(gl_WorkGroupID.xy * uvec2(32, 32) +  gl_LocalInvocationID.xy);
+
+    vec4 res = vec4(0.0, 0.0, 0.0, 1.0);
+
+    for (int i = -params.kernel_rad; i <= params.kernel_rad; i++) {
+        for (int j = -params.kernel_rad; j <= params.kernel_rad; j++) {
+            res += imageLoad(image, pixel + ivec2(i, j)); 
+        }
+    }
+
+    res /= weights.length();
+    
+    imageStore(image, ivec2(gl_GlobalInvocationID.xy), res);
+}
+
