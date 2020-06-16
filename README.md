@@ -1,4 +1,4 @@
-# `image-filter` ✨
+# image-filter ✨
   ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/imjasonmiller/image-filter/Build%20and%20test?style=social)  ![Codecov](https://img.shields.io/codecov/c/github/imjasonmiller/image-filter?style=social) ![GitHub](https://img.shields.io/github/license/imjasonmiller/image-filter?style=social)
 
 A playground in which I experiment and learn about image filters.
